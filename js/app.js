@@ -1,102 +1,47 @@
 // Uygulama durumu ve arayüz mantığı
 //
-// TASARIM: Tek kullanıcı girdisi "Noktalar" listesidir (nokta adı, tür,
-// Y, X, Z). Nivelman ölçüleri, hatlar, dengeleme ve kroki tamamen bu
-// listeden — noktaların TÜRÜNE ve listedeki SIRASINA göre — otomatik
-// türetilir. Başka hiçbir tabloda elle müdahale gerekmez.
+// TASARIM: Tek kullanıcı girdisi "Noktalar" listesidir. Yöntem, klasik GNSS
+// nivelmanı iş akışıdır: RS (sabit) noktalarda hem GNSS ile ölçülen
+// elipsoidal yükseklik (h) hem de bilinen ortometrik yükseklik (H) girilir;
+// bu ikisinden jeoit ondülasyonu N = h − H hesaplanır. Yeni (bilinmeyen)
+// noktalarda yalnızca h girilir. RS noktalarındaki N değerlerine bir eğik
+// düzlem (trend yüzeyi) en küçük kareler ile oturtulur ve bu yüzeyden her
+// yeni noktanın konumundaki N enterpole edilerek H = h − N hesaplanır. Bkz.
+// js/adjustment.js. Noktalar tablosu dışında elle müdahale gerektiren başka
+// hiçbir menü yoktur.
 
-// Sabit varsayılan hassasiyet katsayısı — basitlik için kodda sabittir,
-// arayüzde düzenlenmez. Gerekirse burada değiştirin.
-const DEFAULT_K = 0.003; // m / √km — nivelman hassasiyet katsayısı (σ = k·√S)
-
-// Örnek/test verisi: Rize (Karadeniz) bölgesinde, sahilden yaylaya çıkan
-// ~16 km'lik bir hat nivelmanını temsil eder. Koordinatlar (Y=Doğu, X=Kuzey)
-// UTM benzeri gerçeğe yakın değerlerdir; GERÇEK/RESMİ NİRENGİ-RÖPER
-// KOORDİNATLARI DEĞİLDİR, yalnızca ölçek ve performans testi amaçlıdır.
-// Noktalar kasıtlı olarak güzergah sırasıyla listelenmiştir: otomatik
-// nivelman ölçüleri, ardışık noktalar arasında bu sırayla üretilir.
+// RS noktalarının Rize bölgesinde çalışma alanını çevreleyecek şekilde
+// dağıtıldığı, gerçekçi bir örnek/test veri seti. Koordinatlar ve
+// yükseklikler GERÇEK/RESMİ DEĞİLDİR, yalnızca ölçek ve işlevsellik testi
+// amaçlıdır. h değerleri, RS noktalarındaki bilinen H'ye kasıtlı olarak
+// düzlemsel olmayan (küçük dalgalı) bir jeoit modeli eklenerek üretilmiştir;
+// bu yüzden düzlem oturtması sıfır olmayan küçük bir RMS ile sonuçlanır —
+// gerçekçi bir enterpolasyon örneği gösterir.
 function getSampleState() {
   return {
     points: [
-      { name: "RP1", type: "fixed", height: 4.235, y: 548250, x: 4487600 },
-      { name: "N1", type: "unknown", height: 9.63, y: 548500, x: 4486800 },
-      { name: "N2", type: "unknown", height: 17.865, y: 548950, x: 4485950 },
-      { name: "N3", type: "unknown", height: 29.43, y: 549400, x: 4485000 },
-      { name: "N4", type: "unknown", height: 44.635, y: 549250, x: 4483950 },
-      { name: "RP2", type: "fixed", height: 63.87, y: 549600, x: 4482900 },
-      { name: "N5", type: "unknown", height: 95.265, y: 549300, x: 4481700 },
-      { name: "N6", type: "unknown", height: 132.7, y: 549750, x: 4480650 },
-      { name: "N7", type: "unknown", height: 175.075, y: 549500, x: 4479500 },
-      { name: "N8", type: "unknown", height: 221.47, y: 549900, x: 4478400 },
-      { name: "RP3", type: "fixed", height: 270.955, y: 549650, x: 4477250 },
-      { name: "N9", type: "unknown", height: 318.395, y: 550000, x: 4476150 },
-      { name: "N10", type: "unknown", height: 369.71, y: 549800, x: 4475000 },
-      { name: "N11", type: "unknown", height: 415.18, y: 550150, x: 4473900 },
-      { name: "N12", type: "unknown", height: 462.53, y: 549950, x: 4472750 },
+      { name: "RS1", type: "fixed", y: 548000, x: 4480000, h: 117.1198, H: 80.6 },
+      { name: "RS2", type: "fixed", y: 556000, x: 4480500, h: 134.3617, H: 97.9 },
+      { name: "RS3", type: "fixed", y: 555500, x: 4486000, h: 72.3838, H: 35.9 },
+      { name: "RS4", type: "fixed", y: 548500, x: 4485500, h: 55.9342, H: 19.4 },
+      { name: "N1", type: "unknown", y: 550200, x: 4481200, h: 107.9602 },
+      { name: "N2", type: "unknown", y: 553400, x: 4481600, h: 112.552 },
+      { name: "N3", type: "unknown", y: 554600, x: 4483400, h: 95.2717 },
+      { name: "N4", type: "unknown", y: 552800, x: 4484800, h: 75.4379 },
+      { name: "N5", type: "unknown", y: 550600, x: 4484200, h: 74.8469 },
+      { name: "N6", type: "unknown", y: 552000, x: 4482600, h: 96.4426 },
+      { name: "N7", type: "unknown", y: 549200, x: 4483000, h: 83.5153 },
+      { name: "N8", type: "unknown", y: 554000, x: 4485200, h: 75.1907 },
     ],
   };
 }
 
 let state = getSampleState();
-let lastResult = null;
-let lastLeveling = []; // en son hesaplamada kullanılan otomatik nivelman ölçüleri
-let lastHatlar = []; // en son hesaplamada kullanılan otomatik hat listesi
+let lastResult = null; // { plane, perPoint }
 
 function fmt(v, d = 4) {
   if (v === null || v === undefined || Number.isNaN(v)) return "-";
   return Number(v).toFixed(d);
-}
-
-function planarDistanceKm(a, b) {
-  if (!Number.isFinite(a.y) || !Number.isFinite(a.x) || !Number.isFinite(b.y) || !Number.isFinite(b.x)) return null;
-  return Math.sqrt((b.y - a.y) ** 2 + (b.x - a.x) ** 2) / 1000;
-}
-
-// Ardışık noktalar arasında otomatik nivelman ölçüleri üretir: Δh, iki
-// komşu noktanın Z (kot) farkıdır; mesafe Y/X koordinatlarından düz hat
-// olarak hesaplanır; σ = k·√S (sabit varsayılan k).
-function buildLevelingFromPoints() {
-  const obs = [];
-  for (let i = 0; i < state.points.length - 1; i++) {
-    const a = state.points[i];
-    const b = state.points[i + 1];
-    const dh = Number.isFinite(a.height) && Number.isFinite(b.height) ? b.height - a.height : null;
-    obs.push({ from: a.name, to: b.name, dh, dist: planarDistanceKm(a, b), sigma: null });
-  }
-  return obs;
-}
-
-// Ardışık sabit noktalar arasındaki noktaları bir "hat" olarak gruplar —
-// yalnızca bilgi/kroki amaçlı bir rapordur (uzunluk, toplam yükselti farkı).
-// Kasıtlı olarak bir "kapanma hatası" hesaplamaz: Δh'ler tamamen Z'den
-// türetildiği için ardışık farkların toplamı, ara noktaların değerinden
-// bağımsız olarak matematiksel bir özdeşlikle her zaman iki ucun Z farkına
-// eşit çıkar (teleskopik toplam) — bu, gerçek bir ölçü tutarlılığı göstermez.
-function buildHatlarFromPoints() {
-  const fixedIdx = [];
-  state.points.forEach((p, i) => {
-    if (p.type === "fixed") fixedIdx.push(i);
-  });
-  const hatlar = [];
-  for (let k = 0; k < fixedIdx.length - 1; k++) {
-    const startIdx = fixedIdx[k];
-    const endIdx = fixedIdx[k + 1];
-    const segment = state.points.slice(startIdx, endIdx + 1);
-    let lengthKm = 0;
-    for (let i = startIdx; i < endIdx; i++) {
-      const d = planarDistanceKm(state.points[i], state.points[i + 1]);
-      if (Number.isFinite(d)) lengthKm += d;
-    }
-    const startH = state.points[startIdx].height;
-    const endH = state.points[endIdx].height;
-    hatlar.push({
-      name: `${segment[0].name} → ${segment[segment.length - 1].name}`,
-      points: segment.map((p) => p.name),
-      lengthKm,
-      totalDh: Number.isFinite(startH) && Number.isFinite(endH) ? endH - startH : null,
-    });
-  }
-  return hatlar;
 }
 
 function renderPointsTable() {
@@ -104,17 +49,19 @@ function renderPointsTable() {
   tbody.innerHTML = "";
   state.points.forEach((p, i) => {
     const tr = document.createElement("tr");
+    const isFixed = p.type === "fixed";
     tr.innerHTML = `
       <td><input type="text" value="${vizEscape(p.name)}" data-idx="${i}" data-field="name" class="pt-input" /></td>
       <td>
         <select data-idx="${i}" data-field="type" class="pt-input">
-          <option value="fixed" ${p.type === "fixed" ? "selected" : ""}>Sabit (mesnet)</option>
-          <option value="unknown" ${p.type === "unknown" ? "selected" : ""}>Bilinmeyen</option>
+          <option value="fixed" ${p.type === "fixed" ? "selected" : ""}>Sabit (RS)</option>
+          <option value="unknown" ${p.type === "unknown" ? "selected" : ""}>Bilinmeyen (yeni)</option>
         </select>
       </td>
       <td><input type="number" step="any" value="${p.y ?? ""}" placeholder="—" data-idx="${i}" data-field="y" class="pt-input" /></td>
       <td><input type="number" step="any" value="${p.x ?? ""}" placeholder="—" data-idx="${i}" data-field="x" class="pt-input" /></td>
-      <td><input type="number" step="any" value="${p.height ?? ""}" placeholder="—" data-idx="${i}" data-field="height" class="pt-input" /></td>
+      <td><input type="number" step="any" value="${p.h ?? ""}" placeholder="—" data-idx="${i}" data-field="h" class="pt-input" /></td>
+      <td><input type="number" step="any" value="${isFixed ? p.H ?? "" : ""}" placeholder="${isFixed ? "—" : "hesaplanacak"}" data-idx="${i}" data-field="H" class="pt-input" ${isFixed ? "" : "disabled"} /></td>
       <td><button class="danger" data-idx="${i}" data-action="remove-point">Sil</button></td>
     `;
     tbody.appendChild(tr);
@@ -129,7 +76,7 @@ function attachTableListeners() {
     if (!t.dataset.field) return;
     const idx = Number(t.dataset.idx);
     const field = t.dataset.field;
-    if (["y", "x", "height"].includes(field)) {
+    if (["y", "x", "h", "H"].includes(field)) {
       state.points[idx][field] = t.value === "" ? null : Number(t.value);
     } else if (field === "name") {
       // Tabloyu her tuş vuruşunda yeniden çizmek input'un odağını kaybettirir;
@@ -155,7 +102,7 @@ function attachTableListeners() {
 
   document.getElementById("add-point").addEventListener("click", () => {
     const n = state.points.length + 1;
-    state.points.push({ name: `P${n}`, type: "unknown", height: null, y: null, x: null });
+    state.points.push({ name: `P${n}`, type: "unknown", h: null, H: null, y: null, x: null });
     renderPointsTable();
   });
 
@@ -168,11 +115,8 @@ function calculate() {
   errorBox.textContent = "";
 
   try {
-    const leveling = buildLevelingFromPoints();
-    const result = runAdjustment(state.points, leveling, { k: DEFAULT_K });
+    const result = runGnssGeoidAdjustment(state.points);
     lastResult = result;
-    lastLeveling = leveling;
-    lastHatlar = buildHatlarFromPoints();
     renderResults(result);
   } catch (err) {
     lastResult = null;
@@ -187,87 +131,66 @@ function renderResults(result) {
   document.getElementById("results-section").classList.remove("hidden");
   document.getElementById("viz-section").classList.remove("hidden");
 
-  document.getElementById("stat-nobs").textContent = result.obsCount;
-  document.getElementById("stat-unknowns").textContent = result.unknownCount;
-  document.getElementById("stat-redundancy").textContent = result.redundancy;
-  document.getElementById("stat-sigma0").textContent = fmt(result.sigma0, 5) + " m";
+  const fixedCount = result.perPoint.filter((p) => p.type === "fixed").length;
+  const unknownCount = result.perPoint.filter((p) => p.type === "unknown").length;
 
-  // Ardışık noktalardan otomatik türetilen nivelman ölçüleri, sabit
-  // noktalara bağlandıkları kenarlarda cebirsel olarak kendi kendini
-  // doğrular (Δh, ilgili noktanın kendi Z'sinden geldiği için) — bu yüzden
-  // "redundancy" sıfırdan büyük görünse bile gerçek bağımsız bir kontrol
-  // sağlamaz. Bu, tek bir sıralı nokta listesinin kaçınılmaz bir özelliğidir.
+  document.getElementById("stat-nobs").textContent = fixedCount;
+  document.getElementById("stat-unknowns").textContent = unknownCount;
+  document.getElementById("stat-redundancy").textContent = fixedCount - 3;
+  document.getElementById("stat-sigma0").textContent = fmt(result.plane.rms * 1000, 1) + " mm";
+
   const noteEl = document.getElementById("redundancy-note");
-  noteEl.textContent =
-    "Not: Dengeleme, ardışık noktalardan türetilen ölçülere dayanır; bu ölçüler sabit noktalara bağlandığında " +
-    "cebirsel olarak kendi kendini doğrular. Bu yüzden dengeli yükseklikler, girdiğiniz Z değerlerini neredeyse " +
-    "olduğu gibi yansıtır — bağımsız bir ikinci ölçüm kaynağı (ör. ayrı bir kontrol nivelmanı) olmadan gerçek bir " +
-    "hata tespiti/düzeltme yapılamaz. Standart sapmalar yine de mesafeye göre hesaplanır ve göreli hassasiyeti gösterir.";
-  noteEl.classList.remove("hidden");
+  if (fixedCount === 3) {
+    noteEl.textContent =
+      "Not: Tam olarak 3 RS noktası girildiği için jeoit düzlemi bu üç noktadan tam geçer (RMS ≈ 0) — fazla ölçü " +
+      "yoktur, dolayısıyla düzlem modelinin doğruluğu bağımsız olarak sınanamaz. Daha güvenilir bir sonuç için " +
+      "alanı çevreleyen en az 4 RS noktası kullanmanız önerilir.";
+    noteEl.classList.remove("hidden");
+  } else {
+    noteEl.textContent =
+      `Not: Jeoit düzlemi ${fixedCount} RS noktasına en küçük kareler ile oturtulmuştur; RS noktalarındaki ` +
+      `kalanların RMS'i ${fmt(result.plane.rms * 1000, 1)} mm'dir — bu, düzlem modelinin bölgeyi ne kadar iyi ` +
+      "temsil ettiğinin bir göstergesidir. Yeni noktalar için gösterilen aralık, bu RMS'e dayanan kaba bir " +
+      "enterpolasyon belirsizliği göstergesidir; gerçek bir kovaryans analizi değildir.";
+    noteEl.classList.remove("hidden");
+  }
 
   const heightsBody = document.querySelector("#heights-table tbody");
   heightsBody.innerHTML = "";
-  result.results.forEach((r) => {
+  result.perPoint.forEach((p) => {
     const tr = document.createElement("tr");
+    const durum = p.type === "fixed" ? "Sabit (RS, bilinen H)" : "Hesaplanan (GNSS + jeoit enterpolasyonu)";
     tr.innerHTML = `
-      <td>${vizEscape(r.name)}</td>
-      <td>${fmt(r.H, 4)}</td>
-      <td>±${fmt(r.stdev, 4)} (${fmt(r.stdev * 1000, 1)} mm)</td>
-      <td>[${fmt(r.ciLow, 4)}, ${fmt(r.ciHigh, 4)}]</td>
+      <td>${vizEscape(p.name)}</td>
+      <td>${fmt(p.h, 4)}</td>
+      <td>${fmt(p.N, 4)}</td>
+      <td>${fmt(p.H, 4)}</td>
+      <td>${p.residualMm != null ? fmt(p.residualMm, 1) + " mm" : "—"}</td>
+      <td>${durum}</td>
     `;
     heightsBody.appendChild(tr);
   });
 
-  renderLevelingReport(result);
-  renderHatlarReport();
+  renderPlaneReport(result);
 
-  const adjustedHeightByName = {};
-  result.results.forEach((r) => (adjustedHeightByName[r.name] = r.H));
-  const pointsForViz = state.points.map((p) =>
-    p.type === "unknown" && p.name in adjustedHeightByName ? { ...p, height: adjustedHeightByName[p.name] } : p
-  );
-  const residualByLabel = {};
-  result.residualRows.forEach((r) => (residualByLabel[r.label] = r));
-  renderNetworkSketch(document.getElementById("network-sketch"), pointsForViz, lastLeveling, residualByLabel);
-  renderHeightProfile(document.getElementById("height-profile"), state.points, result.results);
+  renderNetworkSketch(document.getElementById("network-sketch"), state.points, result.plane);
+  renderHeightProfile(document.getElementById("height-profile"), result.perPoint, result.plane.rms);
 }
 
-function renderLevelingReport(result) {
+function renderPlaneReport(result) {
   const body = document.querySelector("#leveling-report-table tbody");
   body.innerHTML = "";
-  lastLeveling.forEach((o) => {
-    const label = `${o.from} → ${o.to}`;
-    const res = result.residualRows.find((r) => r.kind === "Nivelman" && r.label === label);
+  result.plane.residuals.forEach((r) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${vizEscape(o.from)}</td>
-      <td>${vizEscape(o.to)}</td>
-      <td>${fmt(o.dh, 4)}</td>
-      <td>${o.dist != null ? fmt(o.dist, 3) : "—"}</td>
-      <td>${res ? fmt(res.v * 1000, 2) + " mm" : "—"}</td>
-      <td>${res ? fmt(o.dh + res.v, 4) : "—"}</td>
+      <td>${vizEscape(r.name)}</td>
+      <td>${fmt(r.residualM * 1000, 1)} mm</td>
     `;
     body.appendChild(tr);
   });
-}
-
-function renderHatlarReport() {
-  const body = document.querySelector("#hatlar-table tbody");
-  body.innerHTML = "";
-  if (lastHatlar.length === 0) {
-    body.innerHTML = '<tr><td colspan="4">En az iki sabit nokta girilmeden hat oluşturulamaz.</td></tr>';
-    return;
-  }
-  lastHatlar.forEach((h) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${vizEscape(h.name)}</td>
-      <td>${vizEscape(h.points.join(" → "))}</td>
-      <td>${fmt(h.lengthKm, 3)}</td>
-      <td>${h.totalDh != null ? fmt(h.totalDh, 4) : "—"}</td>
-    `;
-    body.appendChild(tr);
-  });
+  const rmsRow = document.createElement("tr");
+  rmsRow.innerHTML = `<td><strong>RMS</strong></td><td><strong>${fmt(result.plane.rms * 1000, 1)} mm</strong></td>`;
+  body.appendChild(rmsRow);
 }
 
 function showImportMessage(msg, isError = false) {
@@ -293,31 +216,31 @@ function loadSampleData() {
   showImportMessage("Örnek Rize test verisi yüklendi.");
 }
 
-// Dengeleme sonrası tüm noktaların (sabit + dengeli bilinmeyen) nihai Y/X/Z
+// Dengeleme sonrası tüm noktaların (RS + hesaplanan yeni) nihai Y/X/H
 // listesini döndürür — indirme butonları bunu kullanır.
 function buildAdjustedPointsList() {
   if (!lastResult) return null;
-  const adjustedByName = {};
-  lastResult.results.forEach((r) => (adjustedByName[r.name] = r.H));
+  const hByName = {};
+  lastResult.perPoint.forEach((p) => (hByName[p.name] = p.H));
   return state.points.map((p) => ({
     name: p.name,
     type: p.type,
     y: p.y,
     x: p.x,
-    z: p.type === "fixed" ? p.height : adjustedByName[p.name] ?? p.height,
+    z: hByName[p.name] ?? p.H,
   }));
 }
 
 function downloadResults(format) {
   const rows = buildAdjustedPointsList();
   if (!rows) {
-    showImportMessage("Önce geçerli bir dengeleme sonucu üretilmeli (nokta listesini kontrol edin).", true);
+    showImportMessage("Önce geçerli bir hesap sonucu üretilmeli (nokta listesini kontrol edin).", true);
     return;
   }
   let content, mime, ext;
   if (format === "csv") {
     content =
-      "Nokta,Tur,Y,X,Z\n" +
+      "Nokta,Tur,Y,X,H\n" +
       rows
         .map((r) => `${r.name},${r.type === "fixed" ? "Sabit" : "Bilinmeyen"},${r.y ?? ""},${r.x ?? ""},${fmt(r.z, 4)}`)
         .join("\n");
@@ -326,7 +249,7 @@ function downloadResults(format) {
   } else if (format === "ncn") {
     // NetCAD Nokta Cetveli (.ncn): NoktaNo,Y,X,Z,Kod — başlıksız, virgülle ayrılmış.
     content = rows
-      .map((r) => `${r.name},${r.y ?? 0},${r.x ?? 0},${fmt(r.z, 4)},${r.type === "fixed" ? "SABIT" : "NIVELMAN"}`)
+      .map((r) => `${r.name},${r.y ?? 0},${r.x ?? 0},${fmt(r.z, 4)},${r.type === "fixed" ? "SABIT" : "GNSS"}`)
       .join("\r\n");
     mime = "text/plain;charset=utf-8";
     ext = "ncn";
@@ -339,7 +262,7 @@ function downloadResults(format) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `dengelenmis-noktalar.${ext}`;
+  a.download = `hesaplanan-noktalar.${ext}`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -364,7 +287,7 @@ function attachToolbarListeners() {
   });
 
   document.getElementById("btn-export-excel").addEventListener("click", () => {
-    XLSX.writeFile(ioBuildWorkbookFromState(state), "nivelman-noktalari.xlsx");
+    XLSX.writeFile(ioBuildWorkbookFromState(state), "gnss-nivelman-noktalari.xlsx");
   });
 
   document.getElementById("btn-download-template").addEventListener("click", ioDownloadTemplate);

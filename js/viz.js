@@ -73,18 +73,17 @@ function hideVizTooltip() {
 }
 
 // ---------------------------------------------------------------------------
-// Ağ krokisi (plan görünüş, ölçekli)
-// ---------------------------------------------------------------------------
-function renderNetworkSketch(container, points, levelingObs, residualByLabel) {
-  const coordPts = points.filter(
-    (p) => Number.isFinite(p.y) && Number.isFinite(p.x)
-  );
-  const usable = new Set(coordPts.map((p) => p.name));
-  const edges = levelingObs.filter((o) => usable.has(o.from) && usable.has(o.to));
+// Ağ krokisi (plan görünüş, ölçekli) — RS (sabit) noktalar kare, yeni
+// (bilinmeyen) noktalar daire olarak konumlarına göre çizilir. Bu yöntemde
+// bir nivelman zinciri/hattı olmadığı için kenar (ölçü) çizgisi yoktur;
+// yalnızca RS noktalarının çalışma alanını ne kadar iyi çevrelediğini
+// görsel olarak değerlendirmeye yarar.
+function renderNetworkSketch(container, points, plane) {
+  const coordPts = points.filter((p) => Number.isFinite(p.y) && Number.isFinite(p.x));
 
-  if (coordPts.length < 2 || edges.length === 0) {
+  if (coordPts.length < 2) {
     container.innerHTML =
-      '<p class="panel-desc">Kroki çizmek için en az iki noktanın Y (Doğu) ve X (Kuzey) koordinatı girilmeli ve aralarında bir nivelman ölçüsü tanımlanmalı olması gerekir.</p>';
+      '<p class="panel-desc">Kroki çizmek için en az iki noktanın Y (Doğu) ve X (Kuzey) koordinatı girilmelidir.</p>';
     return;
   }
 
@@ -115,48 +114,41 @@ function renderNetworkSketch(container, points, levelingObs, residualByLabel) {
     };
   }
 
-  const pointByName = {};
-  coordPts.forEach((p) => (pointByName[p.name] = p));
-
-  let hasControlEdge = false;
-  const edgeSvgParts = [];
-  const edgeHitParts = [];
-  edges.forEach((o) => {
-    const a = toScreen(pointByName[o.from]);
-    const b = toScreen(pointByName[o.to]);
-    const label = `${o.from} → ${o.to}`;
-    const res = residualByLabel[label];
-    // Her iki ucu da sabit (mesnet) olan ölçüler dengelemeye katılmaz (bkz. adjustment.js);
-    // bunlar yalnızca bağımsız bir kontrol/devre ölçüsüdür ve kesikli çizgiyle ayırt edilir.
-    const isControlEdge = !res && pointByName[o.from].type === "fixed" && pointByName[o.to].type === "fixed";
-    if (isControlEdge) hasControlEdge = true;
-    const color = res ? statusColorForNormalizedResidual(res.vNormalized) : VIZ_COLORS.mutedInk;
-    const dash = isControlEdge ? ' stroke-dasharray="6 5"' : "";
-    edgeSvgParts.push(
-      `<line x1="${a.sx.toFixed(1)}" y1="${a.sy.toFixed(1)}" x2="${b.sx.toFixed(1)}" y2="${b.sy.toFixed(1)}" stroke="${color}" stroke-width="2.5" stroke-linecap="round"${dash} />`
-    );
-    const dhText = Number.isFinite(o.dh) ? o.dh.toFixed(4) + " m" : "—";
-    const tip = res
-      ? `<strong>${vizEscape(label)}</strong><br/>Δh = ${res.raw.toFixed(4)} m · S = ${(o.dist ?? 0).toFixed(2)} km<br/>Kalan v = ${res.v.toFixed(4)} m (${statusLabelForNormalizedResidual(res.vNormalized)})`
-      : isControlEdge
-      ? `<strong>${vizEscape(label)}</strong><br/>Δh = ${dhText} · S = ${(o.dist ?? 0).toFixed(2)} km<br/>İki ucu da sabit: dengelemeye katılmaz, yalnızca bağımsız kontrol/devre ölçüsüdür.`
-      : `<strong>${vizEscape(label)}</strong><br/>Δh = ${dhText}`;
-    edgeHitParts.push(
-      `<line x1="${a.sx.toFixed(1)}" y1="${a.sy.toFixed(1)}" x2="${b.sx.toFixed(1)}" y2="${b.sy.toFixed(1)}" stroke="transparent" stroke-width="14" data-tip="${vizEscape(tip)}" class="viz-hit" />`
-    );
-  });
+  const fixedPts = coordPts.filter((p) => p.type === "fixed");
+  // RS noktalarının dışbükey zarfını (convex hull) çizerek çalışma alanını
+  // ne kadar çevrelediklerini görselleştirir (yalnızca bilgi amaçlı).
+  let hullSvg = "";
+  if (fixedPts.length >= 3) {
+    const hull = convexHull(fixedPts.map(toScreen));
+    if (hull.length >= 3) {
+      const d = hull.map((s, i) => `${i === 0 ? "M" : "L"}${s.sx.toFixed(1)},${s.sy.toFixed(1)}`).join(" ") + " Z";
+      hullSvg = `<path d="${d}" fill="${VIZ_COLORS.fixed}" fill-opacity="0.06" stroke="${VIZ_COLORS.fixed}" stroke-width="1.5" stroke-dasharray="5 4" />`;
+    }
+  }
 
   const pointSvgParts = [];
   coordPts.forEach((p) => {
-    if (!edges.some((o) => o.from === p.name || o.to === p.name)) return; // sadece bağlantılı noktaları çiz
     const s = toScreen(p);
     const color = p.type === "fixed" ? VIZ_COLORS.fixed : VIZ_COLORS.unknown;
-    const heightLabel = p.type === "fixed" ? `H = ${p.height?.toFixed(4)} m (sabit)` : `H = ${p.height != null ? p.height.toFixed(4) + " m (dengeli)" : "—"}`;
-    pointSvgParts.push(`
-      <circle cx="${s.sx.toFixed(1)}" cy="${s.sy.toFixed(1)}" r="7" fill="${color}" stroke="${VIZ_COLORS.surface}" stroke-width="2"
-        class="viz-hit" data-tip="${vizEscape(`<strong>${p.name}</strong><br/>${heightLabel}`)}" />
-      <text x="${(s.sx + 10).toFixed(1)}" y="${(s.sy - 8).toFixed(1)}" font-size="12" fill="${VIZ_COLORS.ink}" font-weight="600">${vizEscape(p.name)}</text>
-    `);
+    const hLabel = Number.isFinite(p.H)
+      ? p.type === "fixed"
+        ? `H = ${p.H.toFixed(4)} m (bilinen)`
+        : `H = ${p.H.toFixed(4)} m (hesaplanan)`
+      : "H = —";
+    const tip = `<strong>${vizEscape(p.name)}</strong><br/>${hLabel}${Number.isFinite(p.h) ? `<br/>h (GNSS) = ${p.h.toFixed(4)} m` : ""}`;
+    if (p.type === "fixed") {
+      pointSvgParts.push(`
+        <rect x="${(s.sx - 7).toFixed(1)}" y="${(s.sy - 7).toFixed(1)}" width="14" height="14" fill="${color}" stroke="${VIZ_COLORS.surface}" stroke-width="2"
+          class="viz-hit" data-tip="${vizEscape(tip)}" />
+        <text x="${(s.sx + 11).toFixed(1)}" y="${(s.sy - 9).toFixed(1)}" font-size="12" fill="${VIZ_COLORS.ink}" font-weight="600">${vizEscape(p.name)}</text>
+      `);
+    } else {
+      pointSvgParts.push(`
+        <circle cx="${s.sx.toFixed(1)}" cy="${s.sy.toFixed(1)}" r="7" fill="${color}" stroke="${VIZ_COLORS.surface}" stroke-width="2"
+          class="viz-hit" data-tip="${vizEscape(tip)}" />
+        <text x="${(s.sx + 10).toFixed(1)}" y="${(s.sy - 8).toFixed(1)}" font-size="12" fill="${VIZ_COLORS.ink}" font-weight="600">${vizEscape(p.name)}</text>
+      `);
+    }
   });
 
   // Ölçek çubuğu: çizim genişliğinin ~%18'ine karşılık gelen "güzel" bir yuvarlak uzunluk seç
@@ -167,11 +159,10 @@ function renderNetworkSketch(container, points, levelingObs, residualByLabel) {
   const barY = height - 24;
 
   const svg = `
-    <svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Ölçekli nivelman ağı krokisi" class="viz-svg">
+    <svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="GNSS nivelman ağı kroki" class="viz-svg">
       <rect x="0" y="0" width="${width}" height="${height}" fill="${VIZ_COLORS.surface}" />
-      ${edgeSvgParts.join("\n")}
+      ${hullSvg}
       ${pointSvgParts.join("\n")}
-      ${edgeHitParts.join("\n")}
       <g>
         <line x1="${barX}" y1="${barY}" x2="${barX + barPx}" y2="${barY}" stroke="${VIZ_COLORS.ink}" stroke-width="2" />
         <line x1="${barX}" y1="${barY - 5}" x2="${barX}" y2="${barY + 5}" stroke="${VIZ_COLORS.ink}" stroke-width="2" />
@@ -193,34 +184,49 @@ function renderNetworkSketch(container, points, levelingObs, residualByLabel) {
   container.innerHTML = `
     ${svg}
     <div class="viz-legend">
-      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.fixed}"></span>Sabit nokta</span>
-      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.unknown}"></span>Bilinmeyen nokta</span>
-      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.good}"></span>Uygun ölçü</span>
-      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.serious}"></span>Uyarı</span>
-      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.critical}"></span>Kritik</span>
-      ${hasControlEdge ? `<span class="viz-legend-item"><span class="viz-swatch viz-swatch-dashed" style="background:${VIZ_COLORS.mutedInk}"></span>Kontrol ölçüsü (dengelemeye dahil değil)</span>` : ""}
+      <span class="viz-legend-item"><span class="viz-swatch viz-swatch-square" style="background:${VIZ_COLORS.fixed}"></span>RS (sabit) nokta</span>
+      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.unknown}"></span>Yeni (bilinmeyen) nokta</span>
+      ${fixedPts.length >= 3 ? `<span class="viz-legend-item"><span class="viz-swatch viz-swatch-dashed" style="border-color:${VIZ_COLORS.fixed}"></span>RS noktalarının çevrelediği alan (jeoit modeli bölgesi)</span>` : ""}
     </div>
   `;
 
   attachVizHoverHandlers(container);
 }
 
-// ---------------------------------------------------------------------------
-// Yükseklik profili
-// ---------------------------------------------------------------------------
-function renderHeightProfile(container, points, adjustedResults) {
-  const adjustedByName = {};
-  adjustedResults.forEach((r) => (adjustedByName[r.name] = r));
+// Basit dışbükey zarf (Andrew monotone chain) — yalnızca kroki üzerinde RS
+// noktalarının kapsadığı alanı göstermek için kullanılır.
+function convexHull(pts) {
+  const sorted = [...pts].sort((a, b) => a.sx - b.sx || a.sy - b.sy);
+  const cross = (o, a, b) => (a.sx - o.sx) * (b.sy - o.sy) - (a.sy - o.sy) * (b.sx - o.sx);
+  const lower = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
 
-  const items = points
-    .filter((p) => p.type === "fixed" || adjustedByName[p.name])
-    .map((p) => {
-      if (p.type === "fixed") {
-        return { name: p.name, type: "fixed", H: p.height, stdev: 0, ciLow: p.height, ciHigh: p.height };
-      }
-      const r = adjustedByName[p.name];
-      return { name: p.name, type: "unknown", H: r.H, stdev: r.stdev, ciLow: r.ciLow, ciHigh: r.ciHigh };
-    });
+// ---------------------------------------------------------------------------
+// Yükseklik profili — jeoit yüzeyinin RMS uyumsuzluğu (plane.rms), yeni
+// noktalar için kabaca bir enterpolasyon belirsizliği göstergesi olarak
+// ±rms bandı şeklinde kullanılır (gerçek bir kovaryans/güven aralığı değil,
+// yalnızca düzlem modelinin RS noktalarına ne kadar iyi uyduğunun bir
+// göstergesidir).
+function renderHeightProfile(container, perPoint, rms) {
+  const items = perPoint.map((p) => {
+    if (p.type === "fixed") {
+      return { name: p.name, type: "fixed", H: p.H, ciLow: p.H, ciHigh: p.H };
+    }
+    return { name: p.name, type: "unknown", H: p.H, ciLow: p.H - rms, ciHigh: p.H + rms };
+  });
 
   if (items.length === 0) {
     container.innerHTML = '<p class="panel-desc">Profil için önce dengelemeyi hesaplayın.</p>';
@@ -287,8 +293,8 @@ function renderHeightProfile(container, points, adjustedResults) {
 
     const tip =
       it.type === "fixed"
-        ? `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m (sabit)`
-        : `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m ± ${it.stdev.toFixed(4)} m<br/>%95 GA: [${it.ciLow.toFixed(4)}, ${it.ciHigh.toFixed(4)}]`;
+        ? `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m (bilinen, RS)`
+        : `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m (hesaplanan)<br/>Model RMS ile yaklaşık aralık: [${it.ciLow.toFixed(4)}, ${it.ciHigh.toFixed(4)}]`;
     hits.push(`<rect x="${x - 16}" y="${padT}" width="32" height="${plotH}" fill="transparent" class="viz-hit" data-tip="${vizEscape(tip)}" />`);
   });
 
@@ -307,8 +313,8 @@ function renderHeightProfile(container, points, adjustedResults) {
   container.innerHTML = `
     ${svg}
     <div class="viz-legend">
-      <span class="viz-legend-item"><span class="viz-swatch viz-swatch-square" style="background:${VIZ_COLORS.fixed}"></span>Sabit nokta</span>
-      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.unknown}"></span>Dengeli (bilinmeyen) — %95 güven aralığı ile</span>
+      <span class="viz-legend-item"><span class="viz-swatch viz-swatch-square" style="background:${VIZ_COLORS.fixed}"></span>RS (sabit, bilinen H)</span>
+      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.unknown}"></span>Yeni nokta (hesaplanan H) — model RMS bandıyla</span>
     </div>
   `;
 

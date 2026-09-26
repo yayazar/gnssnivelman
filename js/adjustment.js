@@ -1,158 +1,133 @@
-// Jeodezik nivelman ağı dengelemesi
-// Yöntem: Dolaylı ölçüler (parametrik) yöntemi ile en küçük kareler dengelemesi
+// GNSS destekli nivelman — jeoit ondülasyonu (N) yüzey modeli ile hesap.
 //
-// Bilinmeyenler: sabit (mesnet) olmayan noktaların ortometrik yükseklikleri (H)
-// Ölçü: nivelman yükseklik farkı  H_to - H_from = dh_ölçü
-// (ağırlık: 1/sigma^2, sigma = k * sqrt(S_km))
+// Yöntem (klasik GNSS nivelmanı iş akışı):
+// 1) Yüksekliği (H, ortometrik) kesin bilinen RS (röper/nivelman) noktalarında
+//    GNSS ile elipsoidal yükseklik (h) ölçülür. Bu noktalarda
+//    N = h − H (jeoit ondülasyonu) hesaplanır.
+// 2) Yeni (bilinmeyen) noktalarda yalnızca h ölçülür.
+// 3) RS noktalarındaki N değerlerine, çalışma alanını temsil eden bir eğik
+//    düzlem (trend yüzeyi) en küçük kareler ile oturtulur:
+//       N(Y, X) = a + b·Y + c·X
+// 4) Bu düzlemden her yeni noktanın konumundaki N enterpole edilir ve
+//       H = h − N(Y, X)
+//    ile ortometrik yüksekliği hesaplanır.
+//
+// RS noktaları çalışma alanını geometrik olarak çevrelemelidir; aksi halde
+// (ör. tek bir doğru üzerinde/çakışık iseler) düzlem denklemi belirsiz kalır.
 
-function z95() {
-  return 1.959963985; // %95 güven aralığı için standart normal kritik değer
-}
+// 3x3 simetrik doğrusal sistemi (normal denklemler) Cramer kuralıyla çözer.
+function solve3x3(M, rhs) {
+  const det3 = (m) =>
+    m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+    m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+    m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
 
-function buildPointIndex(points) {
-  const unknownIndex = {};
-  let idx = 0;
-  points.forEach((p) => {
-    if (p.type !== "fixed") {
-      unknownIndex[p.name] = idx++;
-    }
-  });
-  return { unknownIndex, u: idx };
-}
-
-function runAdjustment(points, levelingObs, params) {
-  const { unknownIndex, u } = buildPointIndex(points);
-  if (u === 0) throw new Error("En az bir bilinmeyen (sabit olmayan) nokta tanımlanmalı.");
-
-  const pointByName = {};
-  points.forEach((p) => (pointByName[p.name] = p));
-
-  // Veri kaynağı ne olursa olsun (örnek veri, elle giriş, Excel içe aktarma...)
-  // eksik/geçersiz değerlerin sessizce NaN üretip yanlış bir dengeleme sonucuna
-  // yol açmasını önlemek için, hesaba başlamadan önce girdiler doğrulanır.
-  points.forEach((p) => {
-    if (p.type === "fixed" && !Number.isFinite(p.height)) {
-      throw new Error(`Sabit nokta için geçerli bir yükseklik (Z) girilmeli: ${p.name}`);
-    }
-  });
-
-  const rows = []; // { A: [...], l: value, w: weight, label, kind }
-
-  levelingObs.forEach((obs) => {
-    const fromPt = pointByName[obs.from];
-    const toPt = pointByName[obs.to];
-    if (!fromPt || !toPt) throw new Error(`Nivelman ölçüsü için nokta tanımsız: ${obs.from} -> ${obs.to}`);
-    if (!Number.isFinite(obs.dh)) {
-      throw new Error(
-        `Geçersiz Δh (yükseklik farkı) değeri: ${obs.from} → ${obs.to} (her iki noktanın da Z değeri girilmiş olmalı)`
-      );
-    }
-
-    let sigma;
-    if (obs.sigma && obs.sigma > 0) {
-      sigma = obs.sigma;
-    } else {
-      if (obs.dist === null || obs.dist === undefined || !Number.isFinite(obs.dist) || obs.dist <= 0) {
-        throw new Error(
-          `Nivelman ölçüsü için geçerli bir mesafe (S) veya elle σ girilmeli: ${obs.from} → ${obs.to}`
-        );
-      }
-      sigma = params.k * Math.sqrt(obs.dist);
-    }
-    const w = 1 / (sigma * sigma);
-
-    const row = new Array(u).fill(0);
-    let rhs = obs.dh;
-
-    // H_to katsayısı +1
-    if (toPt.type === "fixed") {
-      rhs -= 1 * toPt.height;
-    } else {
-      row[unknownIndex[toPt.name]] += 1;
-    }
-    // H_from katsayısı -1
-    if (fromPt.type === "fixed") {
-      rhs -= -1 * fromPt.height;
-    } else {
-      row[unknownIndex[fromPt.name]] += -1;
-    }
-
-    if (fromPt.type === "fixed" && toPt.type === "fixed") {
-      // İki ucu da sabit: bilinmeyen içermiyor, kontrol ölçüsü olarak atlanıyor
-      return;
-    }
-
-    rows.push({
-      A: row,
-      l: rhs,
-      w,
-      sigma,
-      label: `${obs.from} → ${obs.to}`,
-      kind: "Nivelman",
-      raw: obs.dh,
-    });
-  });
-
-  const nObs = rows.length;
-  const redundancy = nObs - u;
-  if (redundancy < 0) {
+  const D = det3(M);
+  if (!Number.isFinite(D) || Math.abs(D) < 1e-9) {
     throw new Error(
-      `Sistem belirsiz (fazla bilinmeyen): ${u} bilinmeyen için en az ${u} bağımsız ölçü gerekli, sadece ${nObs} ölçü var.`
+      "Jeoit yüzeyi (düzlem) çözülemedi: sabit (RS) noktalar neredeyse aynı doğru üzerinde ya da " +
+        "çakışık. RS noktaları çalışma alanını geometrik olarak çevreleyecek şekilde dağıtılmalı."
     );
   }
+  const withCol = (col, vec) => M.map((row, i) => row.map((v, j) => (j === col ? vec[i] : v)));
+  const Da = det3(withCol(0, rhs));
+  const Db = det3(withCol(1, rhs));
+  const Dc = det3(withCol(2, rhs));
+  return [Da / D, Db / D, Dc / D];
+}
 
-  const A = rows.map((r) => r.A);
-  const l = rows.map((r) => [r.l]);
-  const weights = rows.map((r) => r.w);
+// Fixed (RS) noktalarının (Y, X, N) üçlülerine en küçük kareler ile
+// N = a + b·Y + c·X düzlemini oturtur.
+function fitGeoidPlane(fixedPts) {
+  if (fixedPts.length < 3) {
+    throw new Error(
+      `Jeoit yüzeyi (düzlem) için en az 3 sabit (RS) nokta gerekli; şu an ${fixedPts.length} tane var.`
+    );
+  }
+  // Sayısal kararlılık için Y/X'i alan merkezine göre kaydır.
+  const yMean = fixedPts.reduce((s, p) => s + p.y, 0) / fixedPts.length;
+  const xMean = fixedPts.reduce((s, p) => s + p.x, 0) / fixedPts.length;
 
-  const { N, n } = weightedNormalEquations(A, weights, l);
-  const Ninv = matInverse(N);
-  const xhat = matMultiply(Ninv, n); // (u x 1) dengeli yükseklikler
+  let Sw = 0, Sy = 0, Sx = 0, Syy = 0, Sxx = 0, Syx = 0, Sn = 0, Syn = 0, Sxn = 0;
+  fixedPts.forEach((p) => {
+    const y = p.y - yMean;
+    const x = p.x - xMean;
+    Sw += 1;
+    Sy += y;
+    Sx += x;
+    Syy += y * y;
+    Sxx += x * x;
+    Syx += y * x;
+    Sn += p.N;
+    Syn += y * p.N;
+    Sxn += x * p.N;
+  });
 
-  // Kalanlar (residuals): v = A*xhat - l
-  const Axhat = matMultiply(A, xhat);
-  const v = rows.map((r, i) => Axhat[i][0] - l[i][0]);
+  const M = [
+    [Sw, Sy, Sx],
+    [Sy, Syy, Syx],
+    [Sx, Syx, Sxx],
+  ];
+  const rhs = [Sn, Syn, Sxn];
+  const [a0, b, c] = solve3x3(M, rhs);
+  // a0, kaydırılmış merkez içindir; gerçek Y/X'e göre sabit terimi geri çevir.
+  const a = a0 - b * yMean - c * xMean;
 
-  // Birim ağırlıklı ölçü hatası (a posteriori varyans faktörü)
-  let vtPv = 0;
-  for (let i = 0; i < nObs; i++) vtPv += weights[i] * v[i] * v[i];
-  const sigma0sq = redundancy > 0 ? vtPv / redundancy : 0;
-  const sigma0 = Math.sqrt(sigma0sq);
+  const predict = (y, x) => a + b * y + c * x;
+  const residuals = fixedPts.map((p) => ({ name: p.name, residualM: p.N - predict(p.y, p.x) }));
+  const rms = Math.sqrt(residuals.reduce((s, r) => s + r.residualM * r.residualM, 0) / residuals.length);
 
-  // Bilinmeyenlerin kovaryans matrisi
-  const Cxx = Ninv.map((row) => row.map((val) => val * sigma0sq));
+  return { a, b, c, predict, residuals, rms };
+}
 
-  const unknownNames = Object.keys(unknownIndex);
-  const results = unknownNames.map((name) => {
-    const i = unknownIndex[name];
-    const H = xhat[i][0];
-    const stdev = Math.sqrt(Math.max(Cxx[i][i], 0));
+// points: [{name, type: "fixed"|"unknown", y, x, h, H?}]
+// Döner: { plane, perPoint: [{name, type, h, N, H, residualMm?}] }
+function runGnssGeoidAdjustment(points) {
+  if (points.length < 1) throw new Error("En az bir nokta girilmeli.");
+
+  points.forEach((p) => {
+    if (!Number.isFinite(p.h)) {
+      throw new Error(`GNSS elipsoidal yükseklik (h) girilmeli: ${p.name}`);
+    }
+    if (!Number.isFinite(p.y) || !Number.isFinite(p.x)) {
+      throw new Error(`Y ve X koordinatları girilmeli: ${p.name}`);
+    }
+    if (p.type === "fixed" && !Number.isFinite(p.H)) {
+      throw new Error(`Sabit (RS) nokta için bilinen ortometrik yükseklik (H) girilmeli: ${p.name}`);
+    }
+  });
+
+  const fixedPts = points
+    .filter((p) => p.type === "fixed")
+    .map((p) => ({ name: p.name, y: p.y, x: p.x, N: p.h - p.H }));
+
+  const plane = fitGeoidPlane(fixedPts);
+  const residualByName = {};
+  plane.residuals.forEach((r) => (residualByName[r.name] = r.residualM));
+
+  const perPoint = points.map((p) => {
+    const Npredicted = plane.predict(p.y, p.x);
+    if (p.type === "fixed") {
+      return {
+        name: p.name,
+        type: p.type,
+        h: p.h,
+        N: p.h - p.H,
+        Npredicted,
+        H: p.H,
+        residualMm: (residualByName[p.name] ?? 0) * 1000,
+      };
+    }
     return {
-      name,
-      H,
-      stdev,
-      ciLow: H - z95() * stdev,
-      ciHigh: H + z95() * stdev,
+      name: p.name,
+      type: p.type,
+      h: p.h,
+      N: Npredicted,
+      Npredicted,
+      H: p.h - Npredicted,
+      residualMm: null,
     };
   });
 
-  const residualRows = rows.map((r, i) => ({
-    label: r.label,
-    kind: r.kind,
-    raw: r.raw,
-    weight: r.w,
-    sigma: r.sigma,
-    v: v[i],
-    vNormalized: r.w > 0 ? v[i] * Math.sqrt(r.w) : 0,
-  }));
-
-  return {
-    unknownCount: u,
-    obsCount: nObs,
-    redundancy,
-    sigma0,
-    sigma0sq,
-    results,
-    residualRows,
-  };
+  return { plane, perPoint };
 }

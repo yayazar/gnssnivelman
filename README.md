@@ -1,12 +1,41 @@
-# Jeodezik Nivelman Ağı Dengelemesi
+# GNSS Nivelmanı — Jeoit Enterpolasyonu
 
-Tek girdi olarak bir **nokta listesi** (Y, X, Z) alan; nivelman ölçülerini,
-hatları, en küçük kareler dengelemesini ve kroki/profil görselleştirmesini
-bu listeden tamamen otomatik türeten, tarayıcıda çalışan istemci taraflı
-bir web uygulaması. Sunucu gerektirmez ve internet bağlantısı olmadan da
-çalışır; Excel içe/dışa aktarma için kullanılan tek üçüncü parti kütüphane
-(SheetJS) dahi yerel olarak paketlenmiştir. Tüm hesap JavaScript ile
-tarayıcıda yapılır, veri hiçbir zaman bir sunucuya gönderilmez.
+Klasik **GNSS destekli nivelman** iş akışını uygulayan, tek girdi olarak bir
+**nokta listesi** alan, tarayıcıda çalışan istemci taraflı bir web
+uygulaması. Sunucu gerektirmez ve internet bağlantısı olmadan da çalışır;
+Excel içe/dışa aktarma için kullanılan tek üçüncü parti kütüphane (SheetJS)
+dahi yerel olarak paketlenmiştir. Tüm hesap JavaScript ile tarayıcıda
+yapılır, veri hiçbir zaman bir sunucuya gönderilmez.
+
+## Yöntem: GNSS + jeoit ondülasyonu enterpolasyonu
+
+1. **Ağ tasarımı**: Koordinatları ve ortometrik yüksekliği (H) kesin bilinen
+   en az 3, tercihen 4+ **RS (röper/nivelman) noktası** seçilir. Bu
+   noktaların, GNSS ölçümü yapılacak çalışma alanını geometrik olarak
+   çevrelemesi gerekir (aksi halde jeoit yüzeyi modeli güvenilir olmaz).
+2. **GNSS ölçümü**: Hem RS noktalarında hem de yüksekliği belirlenecek yeni
+   noktalarda GNSS ile elipsoidal yükseklik (**h**) ölçülür.
+3. **Jeoit ondülasyonu**: RS noktalarında h ve bilinen H'den
+   `N = h − H` hesaplanır.
+4. **Yüzey modeli (enterpolasyon)**: RS noktalarındaki N değerlerine bir
+   eğik düzlem en küçük kareler ile oturtulur:
+   ```
+   N(Y, X) = a + b·Y + c·X
+   ```
+   (Normal denklemler kurulup 3×3 sistem çözülerek a, b, c bulunur.)
+5. **Hesaplama**: Her yeni noktanın konumundaki N, bu düzlemden enterpole
+   edilir ve ortometrik yükseklik `H = h − N(Y, X)` ile hesaplanır.
+
+RS noktalarındaki kalanlar (`N_ölçülen − N_düzlem`) ve bunların RMS'i,
+düzlem modelinin bölgeyi ne kadar iyi temsil ettiğinin bir göstergesi olarak
+raporlanır. Tam olarak 3 RS noktası varsa düzlem bu üç noktadan tam geçer
+(RMS ≈ 0, fazla ölçü yok); 4 veya daha fazla RS noktası, modelin bağımsız
+olarak sınanmasını sağlar.
+
+**Neden düzlem (plane) ve neden en az 3 RS noktası?** Bir düzlem denklemi
+3 katsayı (a, b, c) içerir; bunları belirlemek için en az 3 bağımsız
+(Y, X, N) üçlüsü gerekir. RS noktaları aynı doğru üzerinde veya çakışıksa
+sistem belirsiz kalır ve uygulama açık bir hata ile bunu bildirir.
 
 ## Kullanım
 
@@ -15,84 +44,19 @@ statik dosya sunucusu ile servis edebilirsiniz, örn. `python3 -m http.server`).
 
 **Noktalar** tablosu, uygulamadaki TEK elle düzenlenebilir tablodur:
 
-1. Her satıra bir nokta girin: **Nokta adı**, **Tür** (Sabit/Bilinmeyen),
-   **Y** (Doğu), **X** (Kuzey), **Z** (Kot).
-2. Sabit (mesnet) noktalarda Z, bilinen kesin yüksekliktir ve dengelemede
-   değişmeyen referans olarak kullanılır. Diğer noktalarda Z, saha kotudur.
-3. **Noktaların sırası güzergahı belirler**: listede ardışık her nokta
-   çifti arasında otomatik bir nivelman ölçüsü üretilir (Δh = Z farkı,
-   mesafe = Y/X koordinatlarından düz hat). Ardışık iki sabit nokta
-   arasındaki bölüm otomatik olarak bir "hat" sayılır.
-4. Noktaları girdikten/düzenledikten sonra tablonun altındaki
-   **Hesapla** butonuna basın. Sonuçlar yalnızca bu butona bastığınızda,
-   o an tabloda görünen verilere göre yeniden hesaplanır — nokta
-   değerlerini değiştirmek tek başına sonuçları güncellemez.
+1. Her satıra bir nokta girin: **Nokta adı**, **Tür** (Sabit/RS ya da
+   Bilinmeyen/yeni), **Y** (Doğu), **X** (Kuzey), **h** (GNSS ile ölçülen
+   elipsoidal yükseklik).
+2. **Sabit (RS)** noktalarda ayrıca **H** (bilinen ortometrik yükseklik)
+   girilir; bu alan bilinmeyen (yeni) noktalarda devre dışıdır (otomatik
+   hesaplanır).
+3. Noktaları girdikten/düzenledikten sonra tablonun altındaki **Hesapla**
+   butonuna basın. Sonuçlar yalnızca bu butona bastığınızda, o an tabloda
+   görünen verilere göre yeniden hesaplanır.
 
 Excel/CSV ile kendi nokta listenizi içe aktarabilir ("Proje" araç çubuğu),
 şablonu indirebilir, sonucu dışa aktarabilir ya da örnek veriyle
-başlayabilirsiniz. **Nivelman ölçüleri, hatlar ve kroki dahil hesabın
-mantığı tamamen otomatiktir** — Noktalar tablosu dışında elle müdahale
-gerektiren başka bir menü yoktur; tek manuel adım, hesaplamayı tetiklemek
-için **Hesapla** butonuna basmaktır.
-
-## Yöntem
-
-Dengeleme, **dolaylı ölçüler (parametrik) yöntemi** ile en küçük kareler
-prensibine göre yapılır.
-
-**Bilinmeyenler:** sabit olmayan noktaların ortometrik yükseklikleri.
-
-**Otomatik türetilen ölçü denklemi** (Noktalar listesindeki her ardışık
-çift için):
-
-```
-H_varış − H_kalkış = Δh_ölçü,   Δh_ölçü = Z_varış − Z_kalkış
-ağırlık w = 1/σ²,   σ = k·√S
-```
-
-(S: Y/X'ten hesaplanan km cinsinden düz hat mesafesi; k sabit bir
-varsayılan katsayıdır, bkz. "Sabitler" altında.)
-
-Tüm ölçü denklemleri `A x = l` biçiminde birleştirilir ve normal denklemler
-`N = AᵀPA`, `n = AᵀPl` kurularak `x̂ = N⁻¹n` çözülür (P: köşegen ağırlık
-matrisi).
-
-**İstatistiksel değerlendirme:**
-
-- Kalanlar: `v = A x̂ − l`
-- Birim ağırlıklı ölçü hatası (a posteriori varyans faktörü):
-  `σ₀² = (vᵀPv) / (n_ölçü − u_bilinmeyen)`
-- Bilinmeyenlerin kovaryans matrisi: `Cxx = σ₀² · N⁻¹`
-- Her nokta için standart sapma: `σ_H = √Cxx[i][i]`
-- %95 güven aralığı: `H ± 1.96·σ_H`
-
-### Önemli matematiksel sınırlama: "dengeleme" neden Z'yi neredeyse aynen geri verir
-
-Δh her zaman iki komşu noktanın KENDİ girilen Z'lerinin farkından
-türetildiği için, bir nivelman ölçüsünün bir ucu sabitse, o kenarın
-denklemi cebirsel olarak `H_bilinmeyen = Z_bilinmeyen` şeklinde sadeleşir
-(sabit noktanın değeri denklemden sadeleşerek çıkar). Aynı şekilde, iki
-sabit nokta arasındaki bütün bir hat boyunca ardışık farkların toplamı,
-ara noktaların değerlerinden bağımsız olarak **matematiksel bir özdeşlikle**
-her zaman iki ucun Z farkına eşit çıkar (teleskopik toplam).
-
-Bu, bu uygulamaya özgü bir kısıtlama değil, **tek bir Z değeri + ardışık
-farklarla tanımlanan herhangi bir sistemin kaçınılmaz cebirsel sonucudur**:
-gerçek bir hata tespiti/düzeltme için bağımsız/fazla ölçü gerekir, ve tek
-bir sıralı nokta listesi (dallanma ya da ikinci bir bağımsız ölçüm kaynağı
-olmadan) böyle bir fazlalık içermez. Bu yüzden dengeli yükseklikler,
-girdiğiniz Z değerlerini neredeyse aynen yansıtır — arayüzdeki sonuçlar
-bölümünde bu her zaman bir bilgi notu olarak belirtilir. Standart sapmalar
-yine de mesafeye göre hesaplanır ve noktaların birbirine göre göreli
-hassasiyetini/ağırlığını gösterir; yalnızca mutlak bir hata tespiti/kontrolü
-sağlamazlar.
-
-### Sabitler
-
-Nivelman hassasiyet katsayısı (`k = 0.003` m/√km), basitlik için
-`js/app.js` dosyasının başındaki `DEFAULT_K` sabiti olarak kodlanmıştır
-(arayüzde düzenlenmez). Farklı bir yönetmelik/hassasiyet düzeyi
-kullanmanız gerekiyorsa bu sabiti kaynak koddan değiştirin.
+başlayabilirsiniz.
 
 ## Excel içe/dışa aktarma
 
@@ -100,11 +64,12 @@ kullanmanız gerekiyorsa bu sabiti kaynak koddan değiştirin.
   dosyası indirir.
 - **Excel'den İçe Aktar**: `.xlsx`, `.xls` veya `.csv` dosyası yükleyin.
   Yalnızca bir "Noktalar" sayfası/tablosu beklenir: **Nokta**, **Tür**
-  (Sabit/Bilinmeyen), **Y (Doğu)**, **X (Kuzey)**, **Z (Kot)**. Sütun
-  başlıkları Türkçe karakter/boşluk/birim farklarına (`Nokta`/`Ad`/`Point`,
-  `Tür`/`Tip`/`Type`, `Z`/`Kot`/`Yükseklik` vb.) karşı toleranslıdır; sıra
-  önemli değildir. İçe aktarma, mevcut nokta listesinin **tamamının yerine
-  geçer**.
+  (Sabit/RS ya da Bilinmeyen), **Y (Doğu)**, **X (Kuzey)**, **h**, **H**.
+  Sütun başlıkları için önce tam olarak `h` / `H` (büyük/küçük harf duyarlı,
+  sahada yaygın kısa biçim) aranır; bulunamazsa `Elipsoidal`/`GNSS`
+  (h için) ve `Ortometrik`/`Kot`/`Bilinen H` (H için) gibi daha açıklayıcı
+  başlıklara harf duyarsız olarak geri dönülür. İçe aktarma, mevcut nokta
+  listesinin **tamamının yerine geçer**.
 - **Excel Olarak Dışa Aktar**: O anki nokta listesini bir `.xlsx` dosyasına
   yazar — saklamak, paylaşmak ya da başka bir oturumda geri yüklemek için
   kullanılabilir.
@@ -112,55 +77,60 @@ kullanmanız gerekiyorsa bu sabiti kaynak koddan değiştirin.
   verisini geri yükler ya da nokta listesini boşaltarak sıfırdan başlamayı
   sağlar.
 
-**Doğruluk güvencesi:** Dengeleme motoru (`js/adjustment.js`), veri hangi
+**Doğruluk güvencesi:** Hesap motoru (`js/adjustment.js`), veri hangi
 yoldan geldiğine bakılmaksızın (örnek veri, elle giriş ya da Excel içe
-aktarma) hesaba başlamadan önce girdileri doğrular — sabit bir noktanın
-yüksekliği eksikse ya da bir Δh geçersizse, hesap sessizce yanlış/`NaN` bir
-sonuç üretmez; açık ve nokta/ölçü adını belirten bir hata verir.
+aktarma) hesaba başlamadan önce girdileri doğrular — bir noktanın h'si
+eksikse, bir RS noktasının H'si eksikse ya da RS noktaları jeoit düzlemini
+belirlemeye yetecek şekilde dağılmamışsa (aynı doğru üzerindeyse ya da 3'ten
+azsa), hesap sessizce yanlış/`NaN` bir sonuç üretmez; açık ve nokta adını
+belirten bir hata verir.
 
-## Dengelenmiş noktaları indirme
+## Hesaplanan noktaları indirme
 
-Sonuçlar bölümündeki "TXT", "CSV", "NCN (NetCAD)" butonları, dengeleme
-sonrası TÜM noktaların (sabit + dengeli bilinmeyen) nihai Y, X, Z
-değerlerini içeren bir dosya indirir:
+Sonuçlar bölümündeki "TXT", "CSV", "NCN (NetCAD)" butonları, hesap sonrası
+TÜM noktaların (RS + hesaplanan yeni) nihai Y, X, H değerlerini içeren bir
+dosya indirir:
 
-- **CSV**: `Nokta,Tur,Y,X,Z` başlıklı, virgülle ayrılmış.
-- **TXT**: Sekmeyle ayrılmış düz metin (`Nokta  Y  X  Z`).
+- **CSV**: `Nokta,Tur,Y,X,H` başlıklı, virgülle ayrılmış.
+- **TXT**: Sekmeyle ayrılmış düz metin (`Nokta  Y  X  H`).
 - **NCN**: NetCAD "Nokta Cetveli" biçimi — başlıksız,
   `NoktaNo,Y,X,Z,Kod` düzeninde virgülle ayrılmış satırlar.
 
 ## Görselleştirme (otomatik)
 
-- **Ölçekli ağ krokisi**: Noktalar arasındaki gerçek mesafeyle orantılı
-  (ölçekli) plan görünüşü. Ölçü çizgisi rengi, dengeleme sonrası
-  normalleştirilmiş kalana göre uygun (yeşil) / uyarı (turuncu) / kritik
-  (kırmızı) olarak kodlanır; ölçek çubuğu, kuzey oku ve lejant içerir;
-  nokta ve çizgiler üzerine gelindiğinde ayrıntı gösterir.
-- **Yükseklik profili**: Sabit noktalar kare, bilinmeyen (dengeli) noktalar
-  %95 güven aralığı çubuğuyla birlikte daire olarak gösterilir.
+- **Ölçekli ağ krokisi**: Noktaların gerçek konumuna göre ölçekli plan
+  görünüşü. RS (sabit) noktalar kare, yeni noktalar daire olarak gösterilir;
+  RS noktalarının çevrelediği dışbükey alan (jeoit modeli bölgesi) kesikli
+  çizgiyle işaretlenir — bu, RS dağılımının çalışma alanını ne kadar iyi
+  kapsadığını görsel olarak değerlendirmeye yarar. Ölçek çubuğu, kuzey oku
+  ve lejant içerir; noktalar üzerine gelindiğinde ayrıntı gösterir.
+- **Yükseklik profili**: RS noktaları kare (bilinen H), yeni noktalar daire
+  (hesaplanan H) olarak gösterilir. Yeni noktalarda, jeoit düzlemi RMS
+  uyumsuzluğuna dayanan kaba bir belirsizlik bandı çizilir — bu, gerçek bir
+  kovaryans/güven aralığı değil, yalnızca düzlem modelinin RS noktalarına ne
+  kadar iyi uyduğunun bir göstergesidir.
 
 ## Dosya yapısı
 
 ```
 index.html          Arayüz (HTML) — tek düzenlenebilir tablo: Noktalar
 css/style.css        Görsel stil
-js/matrix.js         Genel matris işlemleri (çarpım, transpoz, Gauss-Jordan tersi)
-js/adjustment.js      Dengeleme hesap motoru (en küçük kareler)
+js/adjustment.js      Jeoit düzlemi (N = a + b·Y + c·X) en küçük kareler oturtması ve H hesabı
 js/viz.js             Ölçekli ağ krokisi ve yükseklik profili SVG görselleştirmeleri
 js/io.js              Excel içe/dışa aktarma ve şablon oluşturma (SheetJS üzerine)
 js/vendor/            SheetJS (xlsx) kütüphanesi — yerel, üçüncü parti (Apache-2.0)
-js/app.js             Nokta listesinden otomatik ölçü/hat türetme, dengeleme tetikleme,
-                      arayüz durumu ve sonuç indirme
+js/app.js             Uygulama durumu, hesaplama tetikleme, arayüz ve sonuç indirme
 ```
 
 ## Notlar / sınırlamalar
 
-- Güven aralıkları normal dağılım varsayımı ile (z = 1.96) hesaplanır;
-  küçük serbestlik derecelerinde t-dağılımı daha uygun olabilir.
-- "Otomatik hatlar" raporu yalnızca bilgi amaçlıdır (hat uzunluğu, toplam
-  Δh); bir kapanma hatası/tolerans karşılaştırması İFADE ETMEZ — yukarıdaki
-  "Önemli matematiksel sınırlama" bölümünde açıklanan nedenle, yalnızca
-  Z'den türetilen bir hat için böyle bir kontrol anlamsız olurdu.
+- Düzlem (plane) modeli, jeoidin bölgesel eğimini yakalar ama yerel
+  dalgalanmaları (küçük ölçekli jeoit anomalilerini) modelleyemez; RS
+  noktalarındaki kalanların RMS'i bu sınırlamanın bir göstergesidir. Daha
+  hassas bir uygulama için ulusal jeoit modeli (ör. TG-03/TG-09) ile
+  birlikte kullanılması önerilir.
+- Yeni noktalar için gösterilen belirsizlik bandı (±RMS), gerçek bir
+  kovaryans analizi değildir; yalnızca kaba bir gösterge amaçlıdır.
 - Bu araç eğitim ve ön değerlendirme amaçlıdır; resmi jeodezik üretimlerde
   ilgili ulusal standartlar ve yönetmeliklerin güncel ve resmi metni esas
   alınmalıdır.

@@ -3,21 +3,22 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Jeodezik Nivelman Ağı Dengelemesi</title>
+<title>GNSS Nivelmanı — Jeoit Enterpolasyonu</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 <header>
-  <h1>Jeodezik Nivelman Ağı Dengelemesi</h1>
-  <p>Yalnızca nokta listesini (Y, X, Z) girin — nivelman ölçüleri, hatlar, dengeleme ve kroki noktaların
-     türüne ve sırasına göre otomatik türetilir; "Hesapla" butonuna bastığınızda güncel verilerinize göre hesaplanır.</p>
+  <h1>GNSS Nivelmanı — Jeoit Enterpolasyonu</h1>
+  <p>RS (sabit) noktalarda GNSS elipsoidal yükseklik (h) ve bilinen ortometrik yükseklik (H) girin; yeni
+     noktalarda yalnızca h girin. Jeoit ondülasyonu (N = h − H) RS noktalarından bir yüzeye oturtulur ve yeni
+     noktaların H'si otomatik hesaplanır. "Hesapla" butonuna bastığınızda güncel verilerinize göre hesaplanır.</p>
 </header>
 
 <main>
   <section class="panel toolbar-panel">
     <h2>Proje</h2>
-    <p class="panel-desc">Nokta listenizi Excel/CSV olarak içe aktarın (yalnızca Y, X, Z sütunları yeterlidir),
-      sonucu dışa aktarın ya da örnek veriyle başlayın. Beklenen sütunlar için şablonu indirebilirsiniz.</p>
+    <p class="panel-desc">Nokta listenizi Excel/CSV olarak içe aktarın, sonucu dışa aktarın ya da örnek veriyle
+      başlayın. Beklenen sütunlar için şablonu indirebilirsiniz.</p>
     <div class="toolbar-actions">
       <label class="secondary file-button">
         Excel'den İçe Aktar
@@ -35,15 +36,17 @@
 
   <section class="panel">
     <h2>Noktalar</h2>
-    <p class="panel-desc">Tek girdi budur. Sabit (mesnet) noktalarda Z bilinen kesin yüksekliktir. Diğer
-      noktalarda Z, saha kotudur. Noktaların <strong>sırası</strong> güzergahı belirler: ardışık her nokta çifti
-      arasında otomatik bir nivelman ölçüsü (Δh = Z farkı, mesafe = Y/X'ten) üretilir; ardışık iki sabit nokta
-      arasındaki bölüm bir "hat" sayılır. Noktaları girdikten/düzenledikten sonra <strong>Hesapla</strong>
-      butonuna basın; sonuçlar yalnızca bu butona bastığınızda güncel verilerinize göre yeniden hesaplanır.</p>
+    <p class="panel-desc">Tek girdi budur. <strong>Sabit (RS)</strong> noktalar, koordinatları ve ortometrik
+      yüksekliği (H) kesin bilinen röper/nivelman noktalarıdır — çalışma alanını geometrik olarak çevrelemeleri
+      önerilir ve en az 3, tercihen 4+ tane olmalıdır. Bu noktalarda hem <strong>h</strong> (GNSS ile ölçülen
+      elipsoidal yükseklik) hem de <strong>H</strong> (bilinen ortometrik yükseklik) girilir. <strong>Bilinmeyen
+      (yeni)</strong> noktalarda yalnızca <strong>h</strong> girilir; H otomatik hesaplanır. Noktaları
+      girdikten/düzenledikten sonra <strong>Hesapla</strong> butonuna basın; sonuçlar yalnızca bu butona
+      bastığınızda güncel verilerinize göre yeniden hesaplanır.</p>
     <table id="points-table">
       <thead>
         <tr>
-          <th>Nokta adı</th><th>Tür</th><th>Y — Doğu (m)</th><th>X — Kuzey (m)</th><th>Z — Kot (m)</th><th></th>
+          <th>Nokta adı</th><th>Tür</th><th>Y — Doğu (m)</th><th>X — Kuzey (m)</th><th>h — GNSS elipsoidal (m)</th><th>H — Bilinen ortometrik (m, RS için)</th><th></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -62,54 +65,46 @@
     <div class="stats-grid">
       <div class="stat-card">
         <div class="value" id="stat-nobs">-</div>
-        <div class="label">Toplam ölçü sayısı</div>
+        <div class="label">RS (sabit) nokta sayısı</div>
       </div>
       <div class="stat-card">
         <div class="value" id="stat-unknowns">-</div>
-        <div class="label">Bilinmeyen sayısı</div>
+        <div class="label">Hesaplanan yeni nokta sayısı</div>
       </div>
       <div class="stat-card">
         <div class="value" id="stat-redundancy">-</div>
-        <div class="label">Fazla ölçü (serbestlik derecesi)</div>
+        <div class="label">Fazla ölçü (RS sayısı − 3)</div>
       </div>
       <div class="stat-card">
         <div class="value" id="stat-sigma0">-</div>
-        <div class="label">Birim ağırlıklı ölçü hatası (σ₀)</div>
+        <div class="label">Jeoit düzlemi RMS uyumsuzluğu</div>
       </div>
     </div>
 
     <p id="redundancy-note" class="message-box hidden"></p>
 
-    <h3>Dengeli yükseklikler</h3>
+    <h3>Hesaplanan yükseklikler</h3>
     <table id="heights-table">
       <thead>
-        <tr><th>Nokta</th><th>Dengeli H (m)</th><th>Standart sapma</th><th>%95 güven aralığı</th></tr>
+        <tr><th>Nokta</th><th>h — GNSS (m)</th><th>N — jeoit ond. (m)</th><th>H — ortometrik (m)</th><th>RS kalanı</th><th>Durum</th></tr>
       </thead>
       <tbody></tbody>
     </table>
 
     <div class="row-actions download-actions">
-      <span class="panel-desc download-label">Dengelenmiş noktaları indir:</span>
+      <span class="panel-desc download-label">Hesaplanan noktaları indir:</span>
       <button class="secondary" data-download-format="txt">TXT</button>
       <button class="secondary" data-download-format="csv">CSV</button>
       <button class="secondary" data-download-format="ncn">NCN (NetCAD)</button>
     </div>
 
-    <h3>Otomatik nivelman ölçüleri</h3>
-    <p class="panel-desc">Noktalar listesindeki ardışık her çiftten otomatik üretilir; elle girilmez.</p>
+    <h3>Jeoit düzlemi kalanları (RS noktaları)</h3>
+    <p class="panel-desc">N = a + b·Y + c·X düzlemi, RS noktalarındaki gözlenen N (= h − H) değerlerine en küçük
+      kareler ile oturtulmuştur. Aşağıdaki kalan, her RS noktasında düzlemin gözlenen N'den ne kadar saptığını
+      gösterir (RMS ile birlikte, modelin bölgeyi ne kadar iyi temsil ettiğinin göstergesidir).</p>
     <table id="leveling-report-table">
       <thead>
-        <tr><th>Kalkış</th><th>Varış</th><th>Δh (m)</th><th>Mesafe (km)</th><th>Düzeltme (v)</th><th>Dengeli Δh (m)</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <h3>Otomatik hatlar</h3>
-    <p class="panel-desc">Ardışık sabit noktalar arasındaki bölümler otomatik olarak bir hat sayılır (bilgi
-      amaçlıdır; Δh'ler Z'den türetildiği için bir kapanma hatası ifade etmez).</p>
-    <table id="hatlar-table">
-      <thead>
-        <tr><th>Hat</th><th>Noktalar</th><th>Uzunluk (km)</th><th>Toplam Δh (m)</th></tr>
+        <tr><th>RS Nokta</th><th>Kalan (mm)</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -119,23 +114,23 @@
     <h2>Görselleştirme (otomatik)</h2>
 
     <h3>Ölçekli ağ krokisi</h3>
-    <p class="panel-desc">Noktalar arasındaki gerçek mesafeyle orantılı (ölçekli) plan görünüşü. Ölçü çizgisinin
-      rengi, dengeleme sonrası normalleştirilmiş kalana göre uygun/uyarı/kritik olarak işaretlenir. Ayrıntılar için
-      nokta ve çizgiler üzerine gelin.</p>
+    <p class="panel-desc">Noktaların gerçek konumuna göre ölçekli plan görünüşü. RS (sabit) noktalar kare, yeni
+      noktalar daire olarak gösterilir; RS noktalarının çevrelediği alan (jeoit modeli bölgesi) kesikli çizgiyle
+      işaretlenir. Ayrıntılar için noktalar üzerine gelin.</p>
     <div id="network-sketch" class="viz-container"></div>
 
     <h3>Yükseklik profili</h3>
-    <p class="panel-desc">Sabit noktalar kare, bilinmeyen (dengeli) noktalar %95 güven aralığı çubuğu ile daire
-      olarak gösterilir.</p>
+    <p class="panel-desc">RS noktaları kare (bilinen H), yeni noktalar daire (hesaplanan H) olarak; yeni noktalarda
+      jeoit düzlemi RMS'ine dayanan kaba bir belirsizlik bandı gösterilir.</p>
     <div id="height-profile" class="viz-container"></div>
   </section>
 </main>
 
 <footer>
-  Dolaylı ölçüler (parametrik) yöntemi ile en küçük kareler dengelemesi — istemci tarafında (tarayıcıda) hesaplanır, veri sunucuya gönderilmez.
+  GNSS elipsoidal yükseklik (h) ve jeoit ondülasyonu (N) enterpolasyonu ile ortometrik yükseklik (H) hesabı —
+  istemci tarafında (tarayıcıda) hesaplanır, veri sunucuya gönderilmez.
 </footer>
 
-<script src="js/matrix.js"></script>
 <script src="js/adjustment.js"></script>
 <script src="js/vendor/xlsx.full.min.js"></script>
 <script src="js/io.js"></script>

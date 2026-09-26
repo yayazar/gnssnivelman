@@ -2,9 +2,9 @@
 // SheetJS (js/vendor/xlsx.full.min.js) kütüphanesini kullanır; tamamen
 // istemci tarafında çalışır, hiçbir veri sunucuya gönderilmez.
 //
-// Uygulamanın TEK girdisi Noktalar listesidir (Nokta, Tür, Y, X, Z); nivelman
-// ölçüleri, hatlar ve dengeleme tamamen bu listeden otomatik türetilir
-// (bkz. app.js).
+// Uygulamanın TEK girdisi Noktalar listesidir (Nokta, Tür, Y, X, h, H); GNSS
+// elipsoidal yükseklik (h) ve jeoit ondülasyonu (N) enterpolasyonu ile
+// hesap tamamen bu listeden otomatik türetilir (bkz. app.js, adjustment.js).
 
 const IO_POINTS_SHEET_ALIASES = ["noktalar", "points"];
 
@@ -60,16 +60,42 @@ function ioGetField(row, aliases, { number = false } = {}) {
   return String(raw).trim();
 }
 
+// "h" (elipsoidal) ve "H" (bilinen ortometrik), normalize edildiğinde
+// (küçük harfe çevrildiğinde) birbirinden ayırt edilemez hale gelir. Bu
+// yüzden önce sütun başlığının HAM (büyük/küçük harf duyarlı) haline göre
+// bire bir "h"/"H" eşleşmesi aranır — bu, sahada yaygın kullanılan kısa
+// başlık biçimidir. Eşleşmezse, daha açıklayıcı takma adlarla (aşağıda)
+// genel (harf duyarsız) eşleştirmeye geri dönülür.
+function ioGetRawExactColumn(row, exact) {
+  const key = Object.keys(row).find((k) => String(k).trim() === exact);
+  return key ? row[key] : undefined;
+}
+
+function ioToNumber(raw) {
+  if (raw === undefined || raw === null || raw === "") return null;
+  const n = typeof raw === "number" ? raw : Number(String(raw).trim().replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
 function ioParsePointsRows(rows) {
   return rows
     .map((row, i) => {
       const name = ioGetField(row, ["nokta", "noktaadi", "ad", "name", "point", "id"]) ?? `P${i + 1}`;
       const typeRaw = (ioGetField(row, ["tur", "tip", "type"]) || "").toLowerCase();
-      const type = /sabit|mesnet|fixed|bilinen/.test(typeRaw) ? "fixed" : "unknown";
-      const height = ioGetField(row, ["z", "kot", "yukseklik", "height"], { number: true });
+      const type = /sabit|mesnet|fixed|rs/.test(typeRaw) ? "fixed" : "unknown";
+
+      const hRaw = ioGetRawExactColumn(row, "h");
+      const h = hRaw !== undefined ? ioToNumber(hRaw) : ioGetField(row, ["h", "elipsoidal", "ellipsoidal", "gnss"], { number: true });
+
+      const HRaw = ioGetRawExactColumn(row, "H");
+      const H =
+        HRaw !== undefined
+          ? ioToNumber(HRaw)
+          : ioGetField(row, ["hbilinen", "hresmi", "ortometrik", "orthometric", "kot", "z"], { number: true });
+
       const y = ioGetField(row, ["y", "dogu", "easting"], { number: true });
       const x = ioGetField(row, ["x", "kuzey", "northing"], { number: true });
-      return { name, type, height, y, x };
+      return { name, type, h, H, y, x };
     })
     .filter((p) => p.name);
 }
@@ -121,7 +147,8 @@ function ioBuildWorkbookFromState(state) {
         Tür: p.type === "fixed" ? "Sabit" : "Bilinmeyen",
         "Y (Doğu)": p.y ?? "",
         "X (Kuzey)": p.x ?? "",
-        "Z (Kot)": p.height ?? "",
+        h: p.h ?? "",
+        H: p.type === "fixed" ? p.H ?? "" : "",
       }))
     ),
     "Noktalar"
@@ -134,13 +161,13 @@ function ioDownloadTemplate() {
   XLSX.utils.book_append_sheet(
     wb,
     XLSX.utils.aoa_to_sheet([
-      ["Nokta", "Tür", "Y (Doğu)", "X (Kuzey)", "Z (Kot)"],
-      ["RP1", "Sabit", 548250, 4487600, 4.235],
-      ["N1", "Bilinmeyen", 548500, 4486800, 9.63],
-      ["N2", "Bilinmeyen", 548950, 4485950, 17.865],
-      ["RP2", "Sabit", 549600, 4482900, 63.87],
+      ["Nokta", "Tür", "Y (Doğu)", "X (Kuzey)", "h", "H"],
+      ["RS1", "Sabit", 548000, 4480000, 117.1198, 80.6],
+      ["RS2", "Sabit", 556000, 4480500, 134.3617, 97.9],
+      ["RS3", "Sabit", 555500, 4486000, 72.3838, 35.9],
+      ["N1", "Bilinmeyen", 550200, 4481200, 107.9602, ""],
     ]),
     "Noktalar"
   );
-  XLSX.writeFile(wb, "nivelman-sablon.xlsx");
+  XLSX.writeFile(wb, "gnss-nivelman-sablon.xlsx");
 }
