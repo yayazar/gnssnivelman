@@ -37,10 +37,11 @@
 
   <section class="panel">
     <h2>1. Noktalar</h2>
-    <p class="panel-desc">Sabit (mesnet) noktalarda Z, bilinen kesin yüksekliktir ve dengelemede sabit değer olarak
-      kullanılır. Diğer noktalarda Z isteğe bağlıdır; yalnızca yaklaşık/ölçülen bir kottur — dengelemeyi doğrudan
-      etkilemez, aşağıdaki nivelman ölçüleri tablosunda "Oto." ile Δh hesaplamak için kullanılabilir. Y/X yalnızca
-      krokinin çizimi içindir.</p>
+    <p class="panel-desc">Her noktanın Z (kot) değeri girilir: sabit (mesnet) noktalarda bu, bilinen kesin
+      yüksekliktir ve dengelemede değişmeyen referans olarak kullanılır. Diğer noktalarda Z, saha/ön hesap kotudur —
+      aşağıdaki "Nivelman ölçüleri" tablosunda Δh, komşu noktaların Z farkından <strong>otomatik</strong> hesaplanır;
+      dengeleme, sabit noktaların Z'sini referans alıp mesafeyle orantılı ağırlıklandırarak diğer noktaların Z'sini
+      düzeltir. Y/X yalnızca krokinin çizimi içindir.</p>
     <table id="points-table">
       <thead>
         <tr><th>Nokta adı</th><th>Tür</th><th>Y — Doğu (m)</th><th>X — Kuzey (m)</th><th>Z — Kot (m)</th><th></th></tr>
@@ -54,13 +55,19 @@
 
   <section class="panel">
     <h2>2. Nivelman (geometrik nivelman) ölçüleri</h2>
-    <p class="panel-desc">Δh = H(varış) − H(kalkış). Mesafe (S) km cinsindendir; standart sapma otomatik olarak
-      σ = k·√S formülüyle hesaplanır (aşağıdaki k parametresi), isterseniz her ölçü için elle σ girebilirsiniz.
-      "Oto." butonu, Noktalar tablosundaki Z farkından Δh'yi ve Y/X'ten düz hat mesafesini hesaplayıp bu satırın
-      üzerine yazar — hesaplanan değerler her zaman düzenlenebilir kalır.</p>
+    <p class="panel-desc"><strong>Δh varsayılan olarak Noktalar tablosundaki Z farkından canlı hesaplanır</strong>
+      (Δh = Z(varış) − Z(kalkış)) — alan boş bırakılırsa placeholder'da "oto: …" olarak görünür ve hesaba bu değer
+      girer. İki sabit (mesnet) nokta arasında ayrıca ölçülmüş <em>bağımsız bir kontrol hattı</em> varsa, o satıra
+      Δh'yi elle girerek otomatik hesaplamanın üzerine yazabilirsiniz (override) — bu, aşağıdaki "Devre/hat kapanma
+      kontrolü" için gereklidir, çünkü yalnızca Z'den türetilen kenarlar teleskopik olarak her zaman tam kapanır.
+      Mesafe (S) km cinsindendir; standart sapma otomatik olarak σ = k·√S formülüyle hesaplanır, isterseniz elle σ
+      girebilirsiniz. Hesapla'dan sonra "Düzeltme" ve "Dengeli Δh" sütunları doldurulur.</p>
     <table id="leveling-table">
       <thead>
-        <tr><th>Kalkış</th><th>Varış</th><th>Δh (m)</th><th>Mesafe S (km)</th><th>σ (m, elle)</th><th></th><th></th></tr>
+        <tr>
+          <th>Kalkış</th><th>Varış</th><th>Δh (m)</th><th>Mesafe S (km)</th><th>σ (m, elle)</th>
+          <th>Düzeltme (v)</th><th>Dengeli Δh (m)</th><th></th><th></th>
+        </tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -110,7 +117,10 @@
     <h2>5. Nivelman devreleri / hatları (kapanma kontrolü)</h2>
     <p class="panel-desc">Bir kapalı devre (ilk ve son nokta aynı) ya da iki sabit (mesnet) nokta arasındaki bir hat
       tanımlayın; ardışık noktalar arasında girilmiş bir nivelman ölçüsü olmalıdır. Nokta adlarını virgülle ayırarak
-      yazın, örn. <code>R1,N1,N2,R1</code>.</p>
+      yazın, örn. <code>R1,N1,N2,R1</code>. <strong>Önemli:</strong> yalnızca Z'den (oto.) türetilen kenarlardan
+      oluşan bir hat, ardışık farkların toplamı gereği her zaman tam kapanır (0 hata) — bu gerçek bir ölçü
+      tutarlılığı göstermez. Anlamlı bir kapanma kontrolü için devre, en az bir elle girilmiş (override) bağımsız
+      ölçü içermelidir (bkz. yukarıdaki "2. Nivelman ölçüleri").</p>
     <table id="devreler-table">
       <thead>
         <tr><th>Devre / hat adı</th><th>Nokta yolu (virgülle ayrılmış)</th><th></th></tr>
@@ -172,12 +182,13 @@
       <tbody></tbody>
     </table>
 
-    <h3>Kalanlar (rezidüeller)</h3>
-    <p class="panel-desc">Normalleştirilmiş kalan |v·√w| &gt; 2 turuncu, &gt; 3 kırmızı ile işaretlenir
-      (olası kaba hata / uyuşumsuz ölçü uyarısı).</p>
+    <h3>GNSS ölçü kalanları (rezidüeller)</h3>
+    <p class="panel-desc">Nivelman ölçülerinin düzeltme/dengeli değerleri "2. Nivelman ölçüleri" panelinde
+      gösterilir. Normalleştirilmiş kalan |v·√w| &gt; 2 turuncu, &gt; 3 kırmızı ile işaretlenir (olası kaba hata /
+      uyuşumsuz ölçü uyarısı).</p>
     <table id="residuals-table">
       <thead>
-        <tr><th>Ölçü</th><th>Tür</th><th>Ölçü değeri</th><th>σ</th><th>Kalan v (m)</th><th>Normalleştirilmiş v</th></tr>
+        <tr><th>Ölçü</th><th>Ölçü değeri</th><th>σ</th><th>Kalan v (m)</th><th>Normalleştirilmiş v</th></tr>
       </thead>
       <tbody></tbody>
     </table>

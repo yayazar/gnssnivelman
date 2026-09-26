@@ -19,16 +19,22 @@ statik dosya sunucusu ile servis edebilirsiniz, örn. `python3 -m http.server`).
    "Tümünü Temizle" ile başlangıç noktası seçin. Bkz. aşağıdaki
    "Excel içe/dışa aktarma" bölümü.
 1. **Noktalar**: Nokta adı, tür (Sabit/Bilinmeyen), Y (Doğu), X (Kuzey) ve
-   Z (Kot) tek bir tabloda girilir. Sabit noktalarda Z, dengelemede sabit
-   değer olarak kullanılan bilinen kesin yüksekliktir. Diğer noktalarda Z
-   isteğe bağlıdır; yalnızca yaklaşık/ölçülen bir kottur ve dengelemeyi
-   doğrudan etkilemez — yalnızca aşağıdaki "Oto." butonuyla Δh hesaplamak
-   için kullanılabilir. Y/X yalnızca krokinin çizimi içindir.
-2. **Nivelman ölçüleri**: Kalkış/varış noktaları, ölçülen yükseklik farkı
-   (Δh) ve mesafeyi (km) girin. Standart sapma girilmezse otomatik olarak
-   `σ = k·√S` formülüyle hesaplanır. "Oto." butonu, Noktalar tablosundaki
-   Z farkından Δh'yi ve Y/X'ten düz hat mesafesini hesaplayıp satırın
-   üzerine yazar (sonuç her zaman elle düzenlenebilir kalır).
+   Z (Kot) tek bir tabloda girilir. Sabit noktalarda Z, dengelemede
+   değişmeyen referans olarak kullanılan bilinen kesin yüksekliktir. Diğer
+   noktalarda Z, saha/ön hesap kotudur — aşağıdaki nivelman ölçüleri
+   panelinde Δh'nin **varsayılan kaynağıdır**. Y/X yalnızca krokinin
+   çizimi içindir.
+2. **Nivelman ölçüleri**: Kalkış/varış noktalarını seçin ve mesafeyi (km)
+   girin. **Δh alanını boş bırakırsanız**, Noktalar tablosundaki güncel Z
+   farkından (`Z_varış − Z_kalkış`) canlı olarak hesaplanır ve placeholder'da
+   "oto: …" şeklinde görünür — bir Z değişince bu önizleme anında güncellenir.
+   İki sabit nokta arasında ayrıca ölçülmüş **bağımsız bir kontrol hattınız**
+   varsa, Δh'yi o satıra elle girerek otomatik hesaplamanın üzerine
+   yazabilirsiniz (override); bu, devre kapanma kontrolü için gereklidir
+   (aşağıya bakın). Standart sapma girilmezse otomatik olarak `σ = k·√S`
+   formülüyle hesaplanır. Hesapla'dan sonra bu tablonun "Düzeltme (v)" ve
+   "Dengeli Δh" sütunları, dengeleme sonucuyla doldurulur; "Mesafe" butonu
+   Y/X koordinatlarından düz hat mesafesi önerir.
 3. **GNSS ölçüleri**: Nokta, elipsoidal yükseklik (h) ve jeoit ondülasyonu
    (N) girin; ortometrik yükseklik `H = h − N` olarak hesaplanıp bir "sözde
    ölçü" olarak dengelemeye katılır.
@@ -37,7 +43,12 @@ statik dosya sunucusu ile servis edebilirsiniz, örn. `python3 -m http.server`).
    hesapta kullanılacak "aktif sınıf"ı radyo düğmesiyle seçin.
 5. **Nivelman devreleri/hatları**: Kapalı bir devre (ör. `R1,N1,N2,R1`) ya da
    iki sabit nokta arasındaki bir hat (ör. `R1,N1,N2,R2`) tanımlayarak ham
-   ölçülerden bağımsız bir kapanma hatası kontrolü ekleyin.
+   ölçülerden bağımsız bir kapanma hatası kontrolü ekleyin. **Önemli:**
+   yalnızca Z'den (oto.) türetilen kenarlardan oluşan bir hat, ardışık
+   farkların toplamı gereği matematiksel olarak her zaman tam kapanır
+   (0 hata) — bu gerçek bir tutarlılık göstermez. Anlamlı bir kapanma
+   kontrolü için devre, en az bir elle girilmiş (override) bağımsız ölçü
+   içermelidir (bkz. örnek veri: `RP1↔RP2`, `RP2↔RP3` kontrol hatları).
 6. **Parametreler**: Nivelman hassasiyet katsayısı (k) ve varsayılan GNSS
    standart sapmasını ayarlayın.
 7. **Dengelemeyi Hesapla** butonuna basın.
@@ -57,7 +68,9 @@ prensibine göre yapılır.
 **Ölçü denklemleri:**
 
 - Nivelman ölçüsü: `H_varış − H_kalkış = Δh_ölçü`, ağırlık `w = 1/σ²`,
-  `σ = k·√S` (S kilometre cinsinden mesafe).
+  `σ = k·√S` (S kilometre cinsinden mesafe). `Δh_ölçü`, elle girilmemişse
+  (override yoksa) Noktalar tablosundaki `Z_varış − Z_kalkış` farkından
+  hesaplanır; elle girilmişse o değer kullanılır.
 - GNSS sözde ölçüsü: `H_nokta = h − N`, ağırlık `w = 1/σ_GNSS²`.
 
 Tüm ölçü denklemleri `A x = l` biçiminde birleştirilir ve normal denklemler
@@ -171,7 +184,9 @@ js/app.js             Arayüz durumu, tablo render'ı ve olay yönetimi
   katılmaz.
 - Devre/hat kapanma kontrolü, ardışık iki nokta arasında doğrudan girilmiş
   bir nivelman ölçüsü arar (yön fark etmez); ara noktalar arasında ölçü
-  yoksa hata verir.
+  yoksa hata verir. Yalnızca Z'den türetilen (oto.) kenarlardan oluşan bir
+  hat her zaman 0 mm kapanma hatası gösterir (teleskopik toplam) — anlamlı
+  bir sonuç için en az bir elle girilmiş (override) bağımsız ölçü gerekir.
 - Y/X koordinatları yalnızca krokinin çizimi içindir, dengeleme hesabını
   etkilemez.
 - Bu araç eğitim ve ön değerlendirme amaçlıdır; resmi jeodezik üretimlerde

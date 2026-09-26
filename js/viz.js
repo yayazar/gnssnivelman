@@ -135,11 +135,12 @@ function renderNetworkSketch(container, points, levelingObs, residualByLabel) {
     edgeSvgParts.push(
       `<line x1="${a.sx.toFixed(1)}" y1="${a.sy.toFixed(1)}" x2="${b.sx.toFixed(1)}" y2="${b.sy.toFixed(1)}" stroke="${color}" stroke-width="2.5" stroke-linecap="round"${dash} />`
     );
+    const dhText = Number.isFinite(o.dh) ? o.dh.toFixed(4) + " m" : "—";
     const tip = res
       ? `<strong>${vizEscape(label)}</strong><br/>Δh = ${res.raw.toFixed(4)} m · S = ${(o.dist ?? 0).toFixed(2)} km<br/>Kalan v = ${res.v.toFixed(4)} m (${statusLabelForNormalizedResidual(res.vNormalized)})`
       : isControlEdge
-      ? `<strong>${vizEscape(label)}</strong><br/>Δh = ${o.dh.toFixed(4)} m · S = ${(o.dist ?? 0).toFixed(2)} km<br/>İki ucu da sabit: dengelemeye katılmaz, yalnızca bağımsız kontrol/devre ölçüsüdür.`
-      : `<strong>${vizEscape(label)}</strong><br/>Δh = ${o.dh.toFixed(4)} m`;
+      ? `<strong>${vizEscape(label)}</strong><br/>Δh = ${dhText} · S = ${(o.dist ?? 0).toFixed(2)} km<br/>İki ucu da sabit: dengelemeye katılmaz, yalnızca bağımsız kontrol/devre ölçüsüdür.`
+      : `<strong>${vizEscape(label)}</strong><br/>Δh = ${dhText}`;
     edgeHitParts.push(
       `<line x1="${a.sx.toFixed(1)}" y1="${a.sy.toFixed(1)}" x2="${b.sx.toFixed(1)}" y2="${b.sy.toFixed(1)}" stroke="transparent" stroke-width="14" data-tip="${vizEscape(tip)}" class="viz-hit" />`
     );
