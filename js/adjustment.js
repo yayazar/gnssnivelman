@@ -31,6 +31,15 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
   const pointByName = {};
   points.forEach((p) => (pointByName[p.name] = p));
 
+  // Veri kaynağı ne olursa olsun (örnek veri, elle giriş, Excel içe aktarma...)
+  // eksik/geçersiz değerlerin sessizce NaN üretip yanlış bir dengeleme sonucuna
+  // yol açmasını önlemek için, hesaba başlamadan önce girdiler doğrulanır.
+  points.forEach((p) => {
+    if (p.type === "fixed" && !Number.isFinite(p.height)) {
+      throw new Error(`Sabit nokta için geçerli bir yükseklik (Z) girilmeli: ${p.name}`);
+    }
+  });
+
   const rows = []; // { A: [...], l: value, w: weight, label, kind }
 
   // 1) Nivelman ölçüleri
@@ -38,6 +47,9 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
     const fromPt = pointByName[obs.from];
     const toPt = pointByName[obs.to];
     if (!fromPt || !toPt) throw new Error(`Nivelman ölçüsü için nokta tanımsız: ${obs.from} -> ${obs.to}`);
+    if (!Number.isFinite(obs.dh)) {
+      throw new Error(`Geçersiz Δh (yükseklik farkı) değeri: ${obs.from} → ${obs.to}`);
+    }
 
     let sigma;
     if (obs.sigma && obs.sigma > 0) {
@@ -89,6 +101,9 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
     const pt = pointByName[obs.point];
     if (!pt) throw new Error(`GNSS ölçüsü için nokta tanımsız: ${obs.point}`);
     if (pt.type === "fixed") return; // sabit noktada GNSS ölçüsü kontrol amaçlı, dengelemeye girmez
+    if (!Number.isFinite(obs.h) || !Number.isFinite(obs.N)) {
+      throw new Error(`Geçersiz GNSS ölçüsü (h veya N) değeri: ${obs.point}`);
+    }
 
     const Hgnss = obs.h - obs.N;
     const sigma = obs.sigma && obs.sigma > 0 ? obs.sigma : params.sigmaGnss;
@@ -207,6 +222,9 @@ function evaluateRoute(routeName, pathNames, points, levelingObs) {
       return { name: routeName, error: `Ölçü bulunamadı: ${a} ↔ ${b}` };
     }
     const obs = fwd || bwd;
+    if (!Number.isFinite(obs.dh)) {
+      return { name: routeName, error: `Geçersiz Δh (yükseklik farkı) değeri: ${a} ↔ ${b}` };
+    }
     const dh = fwd ? obs.dh : -obs.dh;
     if (!Number.isFinite(obs.dist) || obs.dist <= 0) {
       return {
@@ -229,6 +247,12 @@ function evaluateRoute(routeName, pathNames, points, levelingObs) {
     expected = 0;
     kind = "Kapalı devre";
   } else if (startPt.type === "fixed" && endPt.type === "fixed") {
+    if (!Number.isFinite(startPt.height) || !Number.isFinite(endPt.height)) {
+      return {
+        name: routeName,
+        error: `Kapanma hesaplanamaz: ${startPt.name} veya ${endPt.name} için geçerli bir yükseklik (Z) girilmemiş.`,
+      };
+    }
     expected = endPt.height - startPt.height;
     kind = "Mesnetli hat";
   } else {

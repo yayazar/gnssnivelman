@@ -4,7 +4,10 @@
 // ~16 km'lik bir hat nivelmanını temsil eder. Koordinatlar (Y=Doğu, X=Kuzey)
 // UTM benzeri gerçeğe yakın değerlerdir; GERÇEK/RESMİ NİRENGİ-RÖPER
 // KOORDİNATLARI DEĞİLDİR, yalnızca ölçek ve performans testi amaçlıdır.
-const state = {
+// "Örnek Veriyi Yükle" ve ilk açılış tarafından kullanılır; her çağrıda
+// bağımsız bir kopya döndürür (state ile referans paylaşmaz).
+function getSampleState() {
+  return {
   // Noktalar kasıtlı olarak güzergah (hat) sırasıyla listelenmiştir; bu sıra
   // hem noktalar tablosunda hem de yükseklik profilinde okunabilirliği artırır.
   points: [
@@ -67,7 +70,10 @@ const state = {
     { name: "Hat-1 (mesnetli: RP1→RP2)", path: "RP1,N1,N2,N3,N4,RP2" },
     { name: "Hat-2 (mesnetli: RP2→RP3)", path: "RP2,N5,N6,N7,N8,RP3" },
   ],
-};
+  };
+}
+
+let state = getSampleState();
 
 function fmt(v, d = 4) {
   if (v === null || v === undefined || Number.isNaN(v)) return "-";
@@ -96,9 +102,9 @@ function renderPointsTable() {
           <option value="unknown" ${p.type === "unknown" ? "selected" : ""}>Bilinmeyen</option>
         </select>
       </td>
-      <td><input type="number" step="any" value="${p.height ?? ""}" data-idx="${i}" data-field="height" class="pt-input" ${p.type === "unknown" ? "placeholder='—' " : ""} /></td>
       <td><input type="number" step="any" value="${p.y ?? ""}" placeholder="—" data-idx="${i}" data-field="y" class="pt-input" /></td>
       <td><input type="number" step="any" value="${p.x ?? ""}" placeholder="—" data-idx="${i}" data-field="x" class="pt-input" /></td>
+      <td><input type="number" step="any" value="${p.height ?? ""}" placeholder="—" data-idx="${i}" data-field="height" class="pt-input" /></td>
       <td><button class="danger" data-idx="${i}" data-action="remove-point">Sil</button></td>
     `;
     tbody.appendChild(tr);
@@ -145,13 +151,32 @@ function renderLevelingTable() {
     tr.innerHTML = `
       <td><select data-idx="${i}" data-field="from" class="lv-input">${pointOptions(o.from)}</select></td>
       <td><select data-idx="${i}" data-field="to" class="lv-input">${pointOptions(o.to)}</select></td>
-      <td><input type="number" step="any" value="${o.dh}" data-idx="${i}" data-field="dh" class="lv-input" /></td>
-      <td><input type="number" step="any" value="${o.dist}" data-idx="${i}" data-field="dist" class="lv-input" /></td>
+      <td><input type="number" step="any" value="${o.dh ?? ""}" placeholder="—" data-idx="${i}" data-field="dh" class="lv-input" /></td>
+      <td><input type="number" step="any" value="${o.dist ?? ""}" placeholder="—" data-idx="${i}" data-field="dist" class="lv-input" /></td>
       <td><input type="number" step="any" value="${o.sigma ?? ""}" placeholder="oto." data-idx="${i}" data-field="sigma" class="lv-input" /></td>
+      <td><button class="secondary" data-idx="${i}" data-action="autofill-leveling" title="Noktalar tablosundaki Z farkından Δh'yi, Y/X'ten düz hat mesafesini hesaplayıp bu satırın üzerine yazar.">Oto.</button></td>
       <td><button class="danger" data-idx="${i}" data-action="remove-leveling">Sil</button></td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+// Noktalar tablosundaki Z (kot) ve Y/X koordinat farklarından, seçili nivelman
+// satırının Δh ve mesafesini hesaplayıp üzerine yazar. Değerler eksikse
+// (nokta bulunamadı, Z veya koordinat girilmemiş) o alana dokunmadan geçilir —
+// hesap doğruluğu için asla varsayılan/sıfır değer üretilmez.
+function autofillLevelingRow(idx) {
+  const o = state.leveling[idx];
+  if (!o) return;
+  const a = state.points.find((p) => p.name === o.from);
+  const b = state.points.find((p) => p.name === o.to);
+  if (a && b && Number.isFinite(a.height) && Number.isFinite(b.height)) {
+    o.dh = Math.round((b.height - a.height) * 10000) / 10000;
+  }
+  if (a && b && Number.isFinite(a.y) && Number.isFinite(a.x) && Number.isFinite(b.y) && Number.isFinite(b.x)) {
+    o.dist = Math.round((Math.sqrt((b.y - a.y) ** 2 + (b.x - a.x) ** 2) / 1000) * 1000) / 1000;
+  }
+  renderLevelingTable();
 }
 
 function renderGnssTable() {
@@ -210,7 +235,6 @@ function attachTableListeners() {
       }
     } else {
       state.points[idx][field] = t.value;
-      if (field === "type" && t.value === "unknown") state.points[idx].height = null;
       renderAll();
     }
   });
@@ -236,9 +260,12 @@ function attachTableListeners() {
   });
 
   document.querySelector("#leveling-table tbody").addEventListener("click", (e) => {
+    const idx = Number(e.target.dataset.idx);
     if (e.target.dataset.action === "remove-leveling") {
-      state.leveling.splice(Number(e.target.dataset.idx), 1);
+      state.leveling.splice(idx, 1);
       renderAll();
+    } else if (e.target.dataset.action === "autofill-leveling") {
+      autofillLevelingRow(idx);
     }
   });
 
@@ -455,8 +482,78 @@ function renderGnssComplianceNote(activeClass) {
   box.innerHTML = `<p class="panel-desc">Aktif sınıf: <strong>${vizEscape(activeClass.name)}</strong> — GNSS yükseklik σ sınırı: ${activeClass.gnssMaxSigmaMm} mm</p><ul>${rows.join("")}</ul>`;
 }
 
+function showImportMessage(msg, isError = false) {
+  const box = document.getElementById("import-message");
+  box.textContent = msg;
+  box.className = "message-box " + (isError ? "error" : "success");
+  box.classList.remove("hidden");
+}
+
+function clearAllData() {
+  state.points = [];
+  state.leveling = [];
+  state.gnss = [];
+  state.devreler = [];
+  renderAll();
+  document.getElementById("results-section").classList.add("hidden");
+  document.getElementById("viz-section").classList.add("hidden");
+  document.getElementById("error-box").classList.add("hidden");
+  showImportMessage("Tüm noktalar, ölçüler ve devreler temizlendi.");
+}
+
+function loadSampleData() {
+  Object.assign(state, getSampleState());
+  renderAll();
+  calculate();
+  showImportMessage("Örnek Rize test verisi yüklendi.");
+}
+
+function attachToolbarListeners() {
+  document.getElementById("import-excel-input").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const parsed = await ioImportWorkbook(file);
+      state.points = parsed.points;
+      state.leveling = parsed.leveling;
+      state.gnss = parsed.gnss;
+      if (Number.isFinite(parsed.params.k)) state.params.k = parsed.params.k;
+      if (Number.isFinite(parsed.params.sigmaGnss)) state.params.sigmaGnss = parsed.params.sigmaGnss;
+      if (parsed.classesParsed && parsed.classesParsed.classes.length > 0) {
+        state.accuracyClasses = parsed.classesParsed.classes;
+        state.activeClassIndex = parsed.classesParsed.activeIndex;
+      }
+      state.devreler = parsed.routes;
+      renderAll();
+      calculate();
+      showImportMessage(
+        `İçe aktarıldı: ${state.points.length} nokta, ${state.leveling.length} nivelman ölçüsü, ${state.gnss.length} GNSS ölçüsü.`
+      );
+    } catch (err) {
+      showImportMessage("İçe aktarma hatası: " + err.message, true);
+    } finally {
+      e.target.value = "";
+    }
+  });
+
+  document.getElementById("btn-export-excel").addEventListener("click", () => {
+    XLSX.writeFile(ioBuildWorkbookFromState(state), "nivelman-projesi.xlsx");
+  });
+
+  document.getElementById("btn-download-template").addEventListener("click", ioDownloadTemplate);
+
+  document.getElementById("btn-load-sample").addEventListener("click", () => {
+    if (confirm("Mevcut veriler örnek Rize test verisiyle değiştirilecek. Emin misiniz?")) loadSampleData();
+  });
+
+  document.getElementById("btn-clear-all").addEventListener("click", () => {
+    if (confirm("Tüm noktalar, ölçüler ve devreler silinecek. Emin misiniz?")) clearAllData();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   renderAll();
   attachTableListeners();
+  attachToolbarListeners();
   calculate();
 });

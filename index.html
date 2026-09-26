@@ -14,32 +14,53 @@
 </header>
 
 <main>
+  <section class="panel toolbar-panel">
+    <h2>Proje</h2>
+    <p class="panel-desc">Kendi verilerinizi Excel/CSV olarak içe aktarın, mevcut çalışmanızı dışa aktararak
+      saklayın ya da paylaşın. Sütun başlıklarının tam biçimi için şablonu indirebilirsiniz. Her kullanıcı kendi
+      dosyasını yükleyerek kendi ağı üzerinde çalışabilir — hesap yalnızca o an tablolarda görünen veriye göre
+      yapılır, örnek/test verisine bağımlı değildir.</p>
+    <div class="toolbar-actions">
+      <label class="secondary file-button">
+        Excel'den İçe Aktar
+        <input type="file" id="import-excel-input" accept=".xlsx,.xls,.csv" hidden />
+      </label>
+      <button class="secondary" id="btn-download-template">Şablonu İndir</button>
+      <button class="secondary" id="btn-export-excel">Excel Olarak Dışa Aktar</button>
+      <button class="secondary" id="btn-load-sample">Örnek Veriyi Yükle (Rize)</button>
+      <button class="danger" id="btn-clear-all">Tümünü Temizle</button>
+    </div>
+    <div id="import-message" class="message-box hidden"></div>
+  </section>
+
   <div id="error-box" class="hidden"></div>
 
   <section class="panel">
     <h2>1. Noktalar</h2>
-    <p class="panel-desc">Sabit (mesnet) noktaların yüksekliği bilinir ve değiştirilmez. Bilinmeyen noktaların
-      yüksekliği dengeleme sonucunda hesaplanır.</p>
+    <p class="panel-desc">Sabit (mesnet) noktalarda Z, bilinen kesin yüksekliktir ve dengelemede sabit değer olarak
+      kullanılır. Diğer noktalarda Z isteğe bağlıdır; yalnızca yaklaşık/ölçülen bir kottur — dengelemeyi doğrudan
+      etkilemez, aşağıdaki nivelman ölçüleri tablosunda "Oto." ile Δh hesaplamak için kullanılabilir. Y/X yalnızca
+      krokinin çizimi içindir.</p>
     <table id="points-table">
       <thead>
-        <tr><th>Nokta adı</th><th>Tür</th><th>Yükseklik (m) — yalnız sabit noktalar için</th><th>Y — Doğu (m)</th><th>X — Kuzey (m)</th><th></th></tr>
+        <tr><th>Nokta adı</th><th>Tür</th><th>Y — Doğu (m)</th><th>X — Kuzey (m)</th><th>Z — Kot (m)</th><th></th></tr>
       </thead>
       <tbody></tbody>
     </table>
     <div class="row-actions">
       <button class="secondary" id="add-point">+ Nokta ekle</button>
     </div>
-    <p class="panel-desc">Y (Doğu) ve X (Kuzey) koordinatları isteğe bağlıdır; yalnızca aşağıdaki "Görselleştirme"
-      bölümündeki ölçekli ağ krokisini çizmek için kullanılır, dengeleme hesabını etkilemez.</p>
   </section>
 
   <section class="panel">
     <h2>2. Nivelman (geometrik nivelman) ölçüleri</h2>
     <p class="panel-desc">Δh = H(varış) − H(kalkış). Mesafe (S) km cinsindendir; standart sapma otomatik olarak
-      σ = k·√S formülüyle hesaplanır (aşağıdaki k parametresi), isterseniz her ölçü için elle σ girebilirsiniz.</p>
+      σ = k·√S formülüyle hesaplanır (aşağıdaki k parametresi), isterseniz her ölçü için elle σ girebilirsiniz.
+      "Oto." butonu, Noktalar tablosundaki Z farkından Δh'yi ve Y/X'ten düz hat mesafesini hesaplayıp bu satırın
+      üzerine yazar — hesaplanan değerler her zaman düzenlenebilir kalır.</p>
     <table id="leveling-table">
       <thead>
-        <tr><th>Kalkış</th><th>Varış</th><th>Δh (m)</th><th>Mesafe S (km)</th><th>σ (m, elle)</th><th></th></tr>
+        <tr><th>Kalkış</th><th>Varış</th><th>Δh (m)</th><th>Mesafe S (km)</th><th>σ (m, elle)</th><th></th><th></th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -197,6 +218,8 @@
 
 <script src="js/matrix.js"></script>
 <script src="js/adjustment.js"></script>
+<script src="js/vendor/xlsx.full.min.js"></script>
+<script src="js/io.js"></script>
 <script src="js/viz.js"></script>
 <script src="js/app.js"></script>
 </body>

@@ -3,20 +3,32 @@
 Nivelman (geometrik nivelman) yükseklik farkı ölçüleri ile GNSS'ten türetilen
 ortometrik yükseklik ölçülerini (h − N) ortak bir en küçük kareler
 dengelemesinde birleştiren, tarayıcıda çalışan istemci taraflı bir web
-uygulaması. Sunucu veya harici bağımlılık gerektirmez; tüm hesap JavaScript
-ile tarayıcıda yapılır.
+uygulaması. Sunucu gerektirmez ve internet bağlantısı olmadan da çalışır;
+Excel içe/dışa aktarma için kullanılan tek üçüncü parti kütüphane (SheetJS)
+dahi yerel olarak paketlenmiştir. Tüm hesap JavaScript ile tarayıcıda yapılır,
+veri hiçbir zaman bir sunucuya gönderilmez.
 
 ## Kullanım
 
 `index.html` dosyasını bir tarayıcıda açmanız yeterlidir (veya basit bir
 statik dosya sunucusu ile servis edebilirsiniz, örn. `python3 -m http.server`).
 
-1. **Noktalar**: Sabit (mesnet) noktaların yüksekliğini girin; bilinmeyen
-   noktalar için yükseklik alanı boş bırakılır (dengeleme sonucunda
-   hesaplanır).
+0. **Proje** (isteğe bağlı): Kendi verinizi Excel/CSV olarak içe aktarın,
+   "Şablonu İndir" ile beklenen sütun başlıklarını görün, çalışmanızı Excel
+   olarak dışa aktarıp saklayın/paylaşın, ya da "Örnek Veriyi Yükle" /
+   "Tümünü Temizle" ile başlangıç noktası seçin. Bkz. aşağıdaki
+   "Excel içe/dışa aktarma" bölümü.
+1. **Noktalar**: Nokta adı, tür (Sabit/Bilinmeyen), Y (Doğu), X (Kuzey) ve
+   Z (Kot) tek bir tabloda girilir. Sabit noktalarda Z, dengelemede sabit
+   değer olarak kullanılan bilinen kesin yüksekliktir. Diğer noktalarda Z
+   isteğe bağlıdır; yalnızca yaklaşık/ölçülen bir kottur ve dengelemeyi
+   doğrudan etkilemez — yalnızca aşağıdaki "Oto." butonuyla Δh hesaplamak
+   için kullanılabilir. Y/X yalnızca krokinin çizimi içindir.
 2. **Nivelman ölçüleri**: Kalkış/varış noktaları, ölçülen yükseklik farkı
    (Δh) ve mesafeyi (km) girin. Standart sapma girilmezse otomatik olarak
-   `σ = k·√S` formülüyle hesaplanır.
+   `σ = k·√S` formülüyle hesaplanır. "Oto." butonu, Noktalar tablosundaki
+   Z farkından Δh'yi ve Y/X'ten düz hat mesafesini hesaplayıp satırın
+   üzerine yazar (sonuç her zaman elle düzenlenebilir kalır).
 3. **GNSS ölçüleri**: Nokta, elipsoidal yükseklik (h) ve jeoit ondülasyonu
    (N) girin; ortometrik yükseklik `H = h − N` olarak hesaplanıp bir "sözde
    ölçü" olarak dengelemeye katılır.
@@ -87,6 +99,44 @@ nivelman için 3/8/24 mm/√km) yalnızca örnektir ve düzenlenebilir. Resmi bi
 sayısal değerleri mutlaka teyit edip "4. Yönetmelik doğruluk sınıfları"
 tablosuna girin.
 
+## Excel içe/dışa aktarma
+
+Farklı kullanıcıların kendi verileriyle, kendi çalışma alanlarında dengeleme
+yapabilmesi için tüm proje verisi Excel (.xlsx) dosyası olarak taşınabilir.
+İçe aktarma [SheetJS](https://sheetjs.com) kütüphanesiyle (`js/vendor/`,
+Apache-2.0, yerel olarak paketlenmiştir — internet bağlantısı gerekmez)
+tamamen tarayıcıda yapılır; hiçbir veri sunucuya gönderilmez.
+
+- **Şablonu İndir**: Beklenen sayfa adlarını ve sütun başlıklarını gösteren
+  örnek bir `.xlsx` dosyası indirir.
+- **Excel'den İçe Aktar**: `.xlsx`, `.xls` veya `.csv` dosyası yükleyin. Sayfa
+  adları ve sütun başlıkları Türkçe karakter/boşluk farklarına ve yaygın
+  varyasyonlara (`Nokta`/`Ad`/`Point`, `Tür`/`Tip`/`Type`, `Z`/`Kot`/
+  `Yükseklik` vb.) karşı toleranslıdır; sıra önemli değildir. Beklenen
+  sayfalar (yalnızca `Noktalar` zorunlu, diğerleri isteğe bağlı):
+  - `Noktalar`: Nokta, Tür (Sabit/Bilinmeyen), Y (Doğu), X (Kuzey), Z (Kot)
+  - `Nivelman`: Kalkış, Varış, Δh (m), Mesafe S (km), σ (m)
+  - `GNSS`: Nokta, h (m), N (m), σ (m)
+  - `Parametreler`: Parametre/Değer satırları (`k`, `sigmaGnss`)
+  - `DogrulukSiniflari`: Sınıf Adı, Kapanma Katsayısı, GNSS σ Sınırı,
+    Nokta σ Sınırı, Aktif (Evet/Hayır — aktif sınıfı işaretler)
+  - `Devreler`: Ad, Yol (virgülle ayrılmış nokta listesi)
+  - İçe aktarma, mevcut tabloların **tamamının yerine geçer** (ekleme değil,
+    değiştirmedir).
+- **Excel Olarak Dışa Aktar**: O anki tüm çalışma alanını (yukarıdaki 6
+  sayfanın tamamı) tek bir `.xlsx` dosyasına yazar — saklamak, paylaşmak ya
+  da başka bir oturumda geri yüklemek için kullanılabilir.
+- **Örnek Veriyi Yükle (Rize)** / **Tümünü Temizle**: Sırasıyla dahili test
+  verisini geri yükler ya da tüm tabloları boşaltarak sıfırdan başlamayı
+  sağlar.
+
+**Doğruluk güvencesi:** Dengeleme motoru (`js/adjustment.js`), veri hangi
+yoldan geldiğine bakılmaksızın (örnek veri, elle giriş ya da Excel içe
+aktarma) hesaba başlamadan önce girdileri doğrular — sabit bir noktanın
+yüksekliği eksikse, bir Δh ya da GNSS ölçüsü geçersizse, hesap sessizce
+yanlış/`NaN` bir sonuç üretmez; açık ve nokta/ölçü adını belirten bir hata
+verir.
+
 ## Görselleştirme
 
 - **Ölçekli ağ krokisi**: Noktaların Y (Doğu)/X (Kuzey) koordinatları
@@ -106,6 +156,8 @@ css/style.css        Görsel stil
 js/matrix.js         Genel matris işlemleri (çarpım, transpoz, Gauss-Jordan tersi)
 js/adjustment.js      Dengeleme hesap motoru, devre kapanma kontrolü ve doğruluk sınıflandırması
 js/viz.js             Ölçekli ağ krokisi ve yükseklik profili SVG görselleştirmeleri
+js/io.js              Excel içe/dışa aktarma ve şablon oluşturma (SheetJS üzerine)
+js/vendor/            SheetJS (xlsx) kütüphanesi — yerel, üçüncü parti (Apache-2.0)
 js/app.js             Arayüz durumu, tablo render'ı ve olay yönetimi
 ```
 

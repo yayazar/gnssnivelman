@@ -27,55 +27,60 @@ body {
 header {
   background: linear-gradient(135deg, #1e3a8a, #2563eb);
   color: white;
-  padding: 1.5rem 2rem;
+  padding: 1.1rem 2rem;
 }
 
 header h1 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1.5rem;
+  margin: 0 0 0.2rem 0;
+  font-size: 1.3rem;
 }
 
 header p {
   margin: 0;
   opacity: 0.9;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 1.5rem 2rem 3rem;
+  padding: 1.1rem 1.5rem 2.5rem;
 }
 
 section.panel {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 1.5rem;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1rem;
 }
 
 section.panel h2 {
-  margin-top: 0;
-  font-size: 1.1rem;
+  margin: 0 0 0.4rem 0;
+  font-size: 1rem;
   color: var(--accent-dark);
+}
+
+section.panel h3 {
+  font-size: 0.92rem;
+  margin: 0.9rem 0 0.35rem;
 }
 
 .panel-desc {
   color: var(--muted);
-  font-size: 0.9rem;
-  margin-top: -0.5rem;
-  margin-bottom: 1rem;
+  font-size: 0.82rem;
+  margin-top: 0;
+  margin-bottom: 0.6rem;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.92rem;
+  font-size: 0.85rem;
 }
 
 th, td {
-  padding: 0.4rem 0.5rem;
+  padding: 0.28rem 0.4rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
 }
@@ -84,14 +89,15 @@ th {
   background: #eef2f7;
   font-weight: 600;
   color: var(--muted);
+  font-size: 0.78rem;
 }
 
 input, select {
   width: 100%;
-  padding: 0.3rem 0.4rem;
+  padding: 0.22rem 0.35rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   background: white;
   color: var(--text);
 }
@@ -100,8 +106,8 @@ button {
   cursor: pointer;
   border: none;
   border-radius: 6px;
-  padding: 0.45rem 0.9rem;
-  font-size: 0.9rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
   background: var(--accent);
   color: white;
   transition: background 0.15s ease;
@@ -133,7 +139,51 @@ button.danger:hover {
 .row-actions {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+  margin-top: 0.6rem;
+}
+
+.toolbar-panel {
+  background: #f8fafc;
+}
+
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  background: #e2e8f0;
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.file-button:hover {
+  background: #cbd5e1;
+}
+
+.message-box {
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.message-box.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.message-box.error {
+  background: var(--bad-bg);
+  color: var(--danger);
+  border: 1px solid #fecaca;
 }
 
 .params-grid {
@@ -152,12 +202,12 @@ button.danger:hover {
 
 .calculate-bar {
   text-align: center;
-  margin: 1.5rem 0;
+  margin: 1rem 0;
 }
 
 #calculate {
-  font-size: 1.05rem;
-  padding: 0.7rem 2rem;
+  font-size: 1rem;
+  padding: 0.55rem 1.75rem;
 }
 
 .hidden {
