@@ -48,11 +48,9 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
     const toPt = pointByName[obs.to];
     if (!fromPt || !toPt) throw new Error(`Nivelman ölçüsü için nokta tanımsız: ${obs.from} -> ${obs.to}`);
     if (!Number.isFinite(obs.dh)) {
-      const touchesFixed = fromPt.type === "fixed" || toPt.type === "fixed";
-      const hint = touchesFixed
-        ? " (sabit nokta içeren ölçülerde Δh, Z farkından otomatik hesaplanmaz — elle girilmelidir)"
-        : "";
-      throw new Error(`Geçersiz Δh (yükseklik farkı) değeri: ${obs.from} → ${obs.to}${hint}`);
+      throw new Error(
+        `Geçersiz Δh (yükseklik farkı) değeri: ${obs.from} → ${obs.to} (her iki noktanın da Z değeri girilmiş olmalı)`
+      );
     }
 
     let sigma;
@@ -191,107 +189,3 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Yönetmelik toleransları: nivelman devresi/hattı kapanma kontrolü
-// ---------------------------------------------------------------------------
-//
-// Bir devre (kapalı hat: başlangıç == bitiş noktası) veya iki mesnet noktası
-// arasındaki bir hat için, ölçülen yükseklik farklarının toplamı ile
-// beklenen (bilinen) değer arasındaki fark "kapanma hatası"dır. Bu fonksiyon
-// yalnızca ham ölçülerle (dengeleme sonucu kullanmadan) bağımsız bir kapanma
-// kontrolü yapar — yönetmeliklerde öngörülen klasik nivelman kalite kontrolü budur.
-function evaluateRoute(routeName, pathNames, points, levelingObs) {
-  const pointByName = {};
-  points.forEach((p) => (pointByName[p.name] = p));
-
-  if (!Array.isArray(pathNames) || pathNames.length < 2) {
-    return { name: routeName, error: "Hat en az iki nokta içermeli." };
-  }
-  for (const name of pathNames) {
-    if (!pointByName[name]) {
-      return { name: routeName, error: `Nokta tanımsız: ${name}` };
-    }
-  }
-
-  // Ardışık nokta çiftleri arasında (yönü fark etmeksizin) nivelman ölçüsü ara
-  let sumDh = 0;
-  let lengthKm = 0;
-  const segments = [];
-  for (let i = 0; i < pathNames.length - 1; i++) {
-    const a = pathNames[i];
-    const b = pathNames[i + 1];
-    const fwd = levelingObs.find((o) => o.from === a && o.to === b);
-    const bwd = !fwd ? levelingObs.find((o) => o.from === b && o.to === a) : null;
-    if (!fwd && !bwd) {
-      return { name: routeName, error: `Ölçü bulunamadı: ${a} ↔ ${b}` };
-    }
-    const obs = fwd || bwd;
-    if (!Number.isFinite(obs.dh)) {
-      const touchesFixed = pointByName[a].type === "fixed" || pointByName[b].type === "fixed";
-      const hint = touchesFixed ? " (sabit nokta içeren ölçülerde Δh elle girilmelidir)" : "";
-      return { name: routeName, error: `Geçersiz Δh (yükseklik farkı) değeri: ${a} ↔ ${b}${hint}` };
-    }
-    const dh = fwd ? obs.dh : -obs.dh;
-    if (!Number.isFinite(obs.dist) || obs.dist <= 0) {
-      return {
-        name: routeName,
-        error: `Hat uzunluğu (K) hesaplanamaz: ${a} ↔ ${b} ölçüsünde geçerli bir mesafe girilmemiş (yalnızca σ girilmiş olabilir).`,
-      };
-    }
-    sumDh += dh;
-    lengthKm += obs.dist;
-    segments.push({ from: a, to: b, dh, dist: obs.dist });
-  }
-
-  const startPt = pointByName[pathNames[0]];
-  const endPt = pointByName[pathNames[pathNames.length - 1]];
-  const isClosedLoop = pathNames[0] === pathNames[pathNames.length - 1];
-
-  let expected = null;
-  let kind = null;
-  if (isClosedLoop) {
-    expected = 0;
-    kind = "Kapalı devre";
-  } else if (startPt.type === "fixed" && endPt.type === "fixed") {
-    if (!Number.isFinite(startPt.height) || !Number.isFinite(endPt.height)) {
-      return {
-        name: routeName,
-        error: `Kapanma hesaplanamaz: ${startPt.name} veya ${endPt.name} için geçerli bir yükseklik (Z) girilmemiş.`,
-      };
-    }
-    expected = endPt.height - startPt.height;
-    kind = "Mesnetli hat";
-  } else {
-    return {
-      name: routeName,
-      error: "Kapanma hesaplanamaz: hat kapalı bir devre olmalı ya da iki ucu da sabit (mesnet) noktalarda olmalı.",
-    };
-  }
-
-  const misclosureM = sumDh - expected;
-  return {
-    name: routeName,
-    kind,
-    path: pathNames,
-    segments,
-    lengthKm,
-    sumDh,
-    expected,
-    misclosureM,
-    misclosureMm: misclosureM * 1000,
-  };
-}
-
-// Kapanma hatası toleransı: T = katsayı(mm/√km) · √K(km)
-function toleranceMm(coeffMmPerSqrtKm, lengthKm) {
-  return coeffMmPerSqrtKm * Math.sqrt(Math.max(lengthKm, 0));
-}
-
-// Bir standart sapma değerini (mm), tanımlı doğruluk sınıfları arasından
-// karşılayabildiği en sıkı (en küçük eşikli) sınıfa atar.
-function classifyByStdev(stdevMm, classes, thresholdField) {
-  const eligible = classes
-    .filter((c) => Number.isFinite(c[thresholdField]) && c[thresholdField] > 0 && stdevMm <= c[thresholdField])
-    .sort((a, b) => a[thresholdField] - b[thresholdField]);
-  return eligible.length > 0 ? eligible[0].name : "Sınıf dışı";
-}

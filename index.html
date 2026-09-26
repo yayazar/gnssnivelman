@@ -9,17 +9,16 @@
 <body>
 <header>
   <h1>GNSS Jeodezik Nivelman Ağı Dengelemesi</h1>
-  <p>Nivelman yükseklik farkı ölçüleri ile GNSS (elipsoidal yükseklik − jeoit ondülasyonu) ölçülerinin
-     en küçük kareler yöntemiyle (dolaylı ölçüler yöntemi) birleşik dengelemesi</p>
+  <p>Yalnızca nokta listesini (Y, X, Z) girin — nivelman ölçüleri, hatlar, dengeleme ve kroki noktaların
+     türüne ve sırasına göre tamamen otomatik hesaplanır.</p>
 </header>
 
 <main>
   <section class="panel toolbar-panel">
     <h2>Proje</h2>
-    <p class="panel-desc">Kendi verilerinizi Excel/CSV olarak içe aktarın, mevcut çalışmanızı dışa aktararak
-      saklayın ya da paylaşın. Sütun başlıklarının tam biçimi için şablonu indirebilirsiniz. Her kullanıcı kendi
-      dosyasını yükleyerek kendi ağı üzerinde çalışabilir — hesap yalnızca o an tablolarda görünen veriye göre
-      yapılır, örnek/test verisine bağımlı değildir.</p>
+    <p class="panel-desc">Nokta listenizi Excel/CSV olarak içe aktarın (yalnızca Y, X, Z ve isteğe bağlı GNSS h/N
+      sütunları yeterlidir), sonucu dışa aktarın ya da örnek veriyle başlayın. Beklenen sütunlar için şablonu
+      indirebilirsiniz.</p>
     <div class="toolbar-actions">
       <label class="secondary file-button">
         Excel'den İçe Aktar
@@ -36,15 +35,18 @@
   <div id="error-box" class="hidden"></div>
 
   <section class="panel">
-    <h2>1. Noktalar</h2>
-    <p class="panel-desc">Her noktanın Z (kot) değeri girilir: sabit (mesnet) noktalarda bu, bilinen kesin
-      yüksekliktir ve dengelemede değişmeyen referans olarak kullanılır. Diğer noktalarda Z, saha/ön hesap kotudur —
-      iki bilinmeyen nokta arasındaki ölçülerde Δh bu Z'lerin farkından <strong>otomatik</strong> hesaplanır (bkz.
-      "2. Nivelman ölçüleri"). Dengeleme, sabit noktaların Z'sini değişmeyen referans alıp mesafeyle orantılı
-      ağırlıklandırarak diğer noktaların Z'sini düzeltir. Y/X yalnızca krokinin çizimi içindir.</p>
+    <h2>Noktalar</h2>
+    <p class="panel-desc">Tek girdi budur. Sabit (mesnet) noktalarda Z bilinen kesin yüksekliktir. Diğer
+      noktalarda Z, saha kotudur. Noktaların <strong>sırası</strong> güzergahı belirler: ardışık her nokta çifti
+      arasında otomatik bir nivelman ölçüsü (Δh = Z farkı, mesafe = Y/X'ten) üretilir; ardışık iki sabit nokta
+      arasındaki bölüm bir "hat" sayılır. h/N (GNSS elipsoidal yükseklik / jeoit ondülasyonu) isteğe bağlıdır;
+      ikisi birlikte girilen noktalarda bağımsız bir GNSS kontrolü otomatik olarak dengelemeye eklenir.</p>
     <table id="points-table">
       <thead>
-        <tr><th>Nokta adı</th><th>Tür</th><th>Y — Doğu (m)</th><th>X — Kuzey (m)</th><th>Z — Kot (m)</th><th></th></tr>
+        <tr>
+          <th>Nokta adı</th><th>Tür</th><th>Y — Doğu (m)</th><th>X — Kuzey (m)</th><th>Z — Kot (m)</th>
+          <th>h — GNSS (m)</th><th>N — GNSS (m)</th><th></th>
+        </tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -53,108 +55,8 @@
     </div>
   </section>
 
-  <section class="panel">
-    <h2>2. Nivelman (geometrik nivelman) ölçüleri</h2>
-    <p class="panel-desc"><strong>İki bilinmeyen (ara) nokta arasındaki</strong> ölçülerde Δh alanı boş
-      bırakılabilir: Noktalar tablosundaki Z farkından (Z(varış) − Z(kalkış)) canlı hesaplanır ve placeholder'da
-      "oto: …" olarak görünür. <strong>Bir sabit (mesnet) noktaya bağlanan ölçülerde Δh mutlaka elle
-      girilmelidir</strong> — bu kenarlarda Z'den otomatik türetme, sabit noktanın kendi değeriyle cebirsel olarak
-      sadeleşip totolojiye yol açar ve sabit noktanın dengelemeyi etkilemesini tamamen engeller; bu yüzden uygulama
-      bu durumda otomatik hesaplama YAPMAZ (placeholder "elle girin (sabit nokta)" gösterir). Bir sabit-sabit
-      kontrol hattı için de aynı şekilde Δh elle girilir; bu, aşağıdaki "Devre/hat kapanma kontrolü" için gereklidir.
-      Mesafe (S) km cinsindendir; standart sapma otomatik olarak σ = k·√S formülüyle hesaplanır, isterseniz elle σ
-      girebilirsiniz. Girdiğiniz veriler dışında dengeleme tamamen otomatik çalışır — herhangi bir değeri
-      değiştirdiğinizde sonuçlar, "Düzeltme" ve "Dengeli Δh" sütunları dahil, kendiliğinden yeniden hesaplanır.</p>
-    <table id="leveling-table">
-      <thead>
-        <tr>
-          <th>Kalkış</th><th>Varış</th><th>Δh (m)</th><th>Mesafe S (km)</th><th>σ (m, elle)</th>
-          <th>Düzeltme (v)</th><th>Dengeli Δh (m)</th><th></th><th></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="row-actions">
-      <button class="secondary" id="add-leveling">+ Nivelman ölçüsü ekle</button>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>3. GNSS ölçüleri (elipsoidal yükseklik + jeoit ondülasyonu)</h2>
-    <p class="panel-desc">Ortometrik yükseklik: H = h − N (h: GNSS elipsoidal yükseklik, N: jeoit ondülasyonu).
-      Bu değer, ilgili nokta için bir "sözde ölçü" olarak dengelemeye dahil edilir.</p>
-    <table id="gnss-table">
-      <thead>
-        <tr><th>Nokta</th><th>h — elipsoidal yükseklik (m)</th><th>N — jeoit ondülasyonu (m)</th><th>σ (m, elle)</th><th></th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="row-actions">
-      <button class="secondary" id="add-gnss">+ GNSS ölçüsü ekle</button>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>4. Yönetmelik doğruluk sınıfları (BÖHHBÜY)</h2>
-    <p class="panel-desc"><strong>Not:</strong> Aşağıdaki katsayılar örnek/varsayılan değerlerdir. Yürürlükteki
-      Büyük Ölçekli Harita ve Harita Bilgileri Üretim Yönetmeliği'nin güncel metninden teyit ederek düzenleyin.
-      Soldaki radyo düğmesiyle hesapta kullanılacak "aktif sınıf"ı seçin.</p>
-    <table id="accuracy-table">
-      <thead>
-        <tr>
-          <th>Aktif</th><th>Sınıf adı</th>
-          <th>Devre kapanma katsayısı (mm/√km)</th>
-          <th>GNSS yükseklik σ sınırı (mm)</th>
-          <th>Nokta σ sınırı (mm)</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="row-actions">
-      <button class="secondary" id="add-class">+ Sınıf ekle</button>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>5. Nivelman devreleri / hatları (kapanma kontrolü)</h2>
-    <p class="panel-desc">Bir kapalı devre (ilk ve son nokta aynı) ya da iki sabit (mesnet) nokta arasındaki bir hat
-      tanımlayın; ardışık noktalar arasında girilmiş bir nivelman ölçüsü olmalıdır. Nokta adlarını virgülle ayırarak
-      yazın, örn. <code>R1,N1,N2,R1</code>. <strong>Önemli:</strong> yalnızca Z'den (oto.) türetilen kenarlardan
-      oluşan bir hat, ardışık farkların toplamı gereği her zaman tam kapanır (0 hata) — bu gerçek bir ölçü
-      tutarlılığı göstermez. Anlamlı bir kapanma kontrolü için devre, en az bir elle girilmiş (override) bağımsız
-      ölçü içermelidir (bkz. yukarıdaki "2. Nivelman ölçüleri").</p>
-    <table id="devreler-table">
-      <thead>
-        <tr><th>Devre / hat adı</th><th>Nokta yolu (virgülle ayrılmış)</th><th></th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="row-actions">
-      <button class="secondary" id="add-devre">+ Devre/hat ekle</button>
-    </div>
-  </section>
-
-  <section class="panel">
-    <h2>6. Dengeleme parametreleri</h2>
-    <div class="params-grid">
-      <div class="param-field">
-        <label for="param-k">Nivelman hassasiyet katsayısı k (m / √km)</label>
-        <input type="number" step="any" id="param-k" />
-      </div>
-      <div class="param-field">
-        <label for="param-sigma-gnss">Varsayılan GNSS yükseklik standart sapması σ (m)</label>
-        <input type="number" step="any" id="param-sigma-gnss" />
-      </div>
-    </div>
-  </section>
-
-  <div class="calculate-bar">
-    <span id="auto-calc-status" class="auto-calc-status">⟳ Dengeleme otomatik olarak hesaplanır</span>
-  </div>
-
   <section class="panel hidden" id="results-section">
-    <h2>Sonuçlar</h2>
+    <h2>Sonuçlar (otomatik)</h2>
 
     <div class="stats-grid">
       <div class="stat-card">
@@ -175,48 +77,62 @@
       </div>
     </div>
 
+    <p id="redundancy-note" class="message-box hidden"></p>
+
     <h3>Dengeli yükseklikler</h3>
-    <p class="panel-desc">"Sınıf" sütunu, noktanın standart sapmasının hangi tanımlı doğruluk sınıfının nokta σ
-      sınırını karşıladığını gösterir (en sıkı uyan sınıf). Satır, seçili aktif sınıfın eşiğini aşarsa vurgulanır.</p>
     <table id="heights-table">
       <thead>
-        <tr><th>Nokta</th><th>Dengeli H (m)</th><th>Standart sapma</th><th>%95 güven aralığı</th><th>Sınıf</th></tr>
+        <tr><th>Nokta</th><th>Dengeli H (m)</th><th>Standart sapma</th><th>%95 güven aralığı</th></tr>
       </thead>
       <tbody></tbody>
     </table>
 
-    <h3>GNSS ölçü kalanları (rezidüeller)</h3>
-    <p class="panel-desc">Nivelman ölçülerinin düzeltme/dengeli değerleri "2. Nivelman ölçüleri" panelinde
-      gösterilir. Normalleştirilmiş kalan |v·√w| &gt; 2 turuncu, &gt; 3 kırmızı ile işaretlenir (olası kaba hata /
-      uyuşumsuz ölçü uyarısı).</p>
-    <table id="residuals-table">
+    <div class="row-actions download-actions">
+      <span class="panel-desc download-label">Dengelenmiş noktaları indir:</span>
+      <button class="secondary" data-download-format="txt">TXT</button>
+      <button class="secondary" data-download-format="csv">CSV</button>
+      <button class="secondary" data-download-format="ncn">NCN (NetCAD)</button>
+    </div>
+
+    <h3>Otomatik nivelman ölçüleri</h3>
+    <p class="panel-desc">Noktalar listesindeki ardışık her çiftten otomatik üretilir; elle girilmez.</p>
+    <table id="leveling-report-table">
       <thead>
-        <tr><th>Ölçü</th><th>Ölçü değeri</th><th>σ</th><th>Kalan v (m)</th><th>Normalleştirilmiş v</th></tr>
+        <tr><th>Kalkış</th><th>Varış</th><th>Δh (m)</th><th>Mesafe (km)</th><th>Düzeltme (v)</th><th>Dengeli Δh (m)</th></tr>
       </thead>
       <tbody></tbody>
     </table>
 
-    <h3>Devre / hat kapanma kontrolü</h3>
-    <p class="panel-desc">Ham ölçülerden (dengeleme sonucu kullanılmadan) bağımsız kapanma kontrolü; aktif
-      doğruluk sınıfının kapanma katsayısı ile karşılaştırılır: T = katsayı·√K (K: hat uzunluğu, km).</p>
-    <table id="devre-results-table">
+    <h3>Otomatik hatlar</h3>
+    <p class="panel-desc">Ardışık sabit noktalar arasındaki bölümler otomatik olarak bir hat sayılır (bilgi
+      amaçlıdır; Δh'ler Z'den türetildiği için bir kapanma hatası ifade etmez).</p>
+    <table id="hatlar-table">
       <thead>
-        <tr><th>Devre / hat</th><th>Uzunluk K (km)</th><th>Kapanma hatası</th><th>Tolerans</th><th>Durum</th></tr>
+        <tr><th>Hat</th><th>Noktalar</th><th>Uzunluk (km)</th><th>Toplam Δh (m)</th></tr>
       </thead>
       <tbody></tbody>
     </table>
 
-    <h3>GNSS ölçü doğruluğu uygunluğu</h3>
-    <div id="gnss-compliance"></div>
+    <div id="gnss-residuals-section" class="hidden">
+      <h3>GNSS ölçü kalanları (rezidüeller)</h3>
+      <p class="panel-desc">Normalleştirilmiş kalan |v·√w| &gt; 2 turuncu, &gt; 3 kırmızı ile işaretlenir
+        (olası kaba hata / uyuşumsuz ölçü uyarısı).</p>
+      <table id="residuals-table">
+        <thead>
+          <tr><th>Nokta</th><th>H (GNSS, m)</th><th>σ</th><th>Kalan v (m)</th><th>Normalleştirilmiş v</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </section>
 
   <section class="panel hidden" id="viz-section">
-    <h2>Görselleştirme</h2>
+    <h2>Görselleştirme (otomatik)</h2>
 
     <h3>Ölçekli ağ krokisi</h3>
     <p class="panel-desc">Noktalar arasındaki gerçek mesafeyle orantılı (ölçekli) plan görünüşü. Ölçü çizgisinin
-      rengi, o ölçünün dengeleme sonrası normalleştirilmiş kalanına göre uygun/uyarı/kritik olarak işaretlenir.
-      Ayrıntılar için nokta ve çizgiler üzerine gelin.</p>
+      rengi, dengeleme sonrası normalleştirilmiş kalana göre uygun/uyarı/kritik olarak işaretlenir. Ayrıntılar için
+      nokta ve çizgiler üzerine gelin.</p>
     <div id="network-sketch" class="viz-container"></div>
 
     <h3>Yükseklik profili</h3>

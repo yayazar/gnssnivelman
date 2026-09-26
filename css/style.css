@@ -186,23 +186,18 @@ button.danger:hover {
   border: 1px solid #fecaca;
 }
 
-.params-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.param-field label {
-  display: block;
-  font-size: 0.85rem;
-  color: var(--muted);
-  margin-bottom: 0.25rem;
-}
-
 .calculate-bar {
   text-align: center;
   margin: 1rem 0;
+}
+
+.download-actions {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.download-label {
+  margin: 0;
 }
 
 .auto-calc-status {
@@ -270,19 +265,10 @@ code {
   font-size: 0.85em;
 }
 
-tr.active-class-row {
-  background: #eef2ff;
-}
-
-#gnss-compliance ul {
-  margin: 0.25rem 0 0 0;
-  padding-left: 1.25rem;
-  font-size: 0.92rem;
-}
-
-#gnss-compliance li.flag-bad {
-  color: var(--danger);
-  font-weight: 600;
+#redundancy-note {
+  background: #fff7ed;
+  color: #9a5b13;
+  border: 1px solid #fed7aa;
 }
 
 .viz-container {
