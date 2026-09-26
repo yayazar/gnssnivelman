@@ -200,13 +200,9 @@ button.danger:hover {
   margin: 0;
 }
 
-.auto-calc-status {
-  display: inline-block;
-  font-size: 0.85rem;
-  color: var(--muted);
-  background: #eef2f7;
-  padding: 0.4rem 1rem;
-  border-radius: 999px;
+#calculate {
+  font-size: 1rem;
+  padding: 0.55rem 1.75rem;
 }
 
 .hidden {

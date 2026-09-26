@@ -23,14 +23,17 @@ statik dosya sunucusu ile servis edebilirsiniz, örn. `python3 -m http.server`).
    çifti arasında otomatik bir nivelman ölçüsü üretilir (Δh = Z farkı,
    mesafe = Y/X koordinatlarından düz hat). Ardışık iki sabit nokta
    arasındaki bölüm otomatik olarak bir "hat" sayılır.
+4. Noktaları girdikten/düzenledikten sonra tablonun altındaki
+   **Hesapla** butonuna basın. Sonuçlar yalnızca bu butona bastığınızda,
+   o an tabloda görünen verilere göre yeniden hesaplanır — nokta
+   değerlerini değiştirmek tek başına sonuçları güncellemez.
 
 Excel/CSV ile kendi nokta listenizi içe aktarabilir ("Proje" araç çubuğu),
 şablonu indirebilir, sonucu dışa aktarabilir ya da örnek veriyle
-başlayabilirsiniz. **Nivelman ölçüleri, hatlar, dengeleme ve kroki dahil
-her şey otomatiktir** — Noktalar tablosu dışında elle müdahale gerektiren
-başka bir menü yoktur; ayrı bir "Hesapla" adımı da yoktur, sayfa ilk
-açıldığında ve her değişiklikte dengeleme kendiliğinden yeniden çalışır
-(bkz. "⟳/✓ Dengeleme otomatik olarak hesaplanır/güncellendi" göstergesi).
+başlayabilirsiniz. **Nivelman ölçüleri, hatlar ve kroki dahil hesabın
+mantığı tamamen otomatiktir** — Noktalar tablosu dışında elle müdahale
+gerektiren başka bir menü yoktur; tek manuel adım, hesaplamayı tetiklemek
+için **Hesapla** butonuna basmaktır.
 
 ## Yöntem
 

@@ -10,7 +10,7 @@
 <header>
   <h1>Jeodezik Nivelman Ağı Dengelemesi</h1>
   <p>Yalnızca nokta listesini (Y, X, Z) girin — nivelman ölçüleri, hatlar, dengeleme ve kroki noktaların
-     türüne ve sırasına göre tamamen otomatik hesaplanır.</p>
+     türüne ve sırasına göre otomatik türetilir; "Hesapla" butonuna bastığınızda güncel verilerinize göre hesaplanır.</p>
 </header>
 
 <main>
@@ -38,7 +38,8 @@
     <p class="panel-desc">Tek girdi budur. Sabit (mesnet) noktalarda Z bilinen kesin yüksekliktir. Diğer
       noktalarda Z, saha kotudur. Noktaların <strong>sırası</strong> güzergahı belirler: ardışık her nokta çifti
       arasında otomatik bir nivelman ölçüsü (Δh = Z farkı, mesafe = Y/X'ten) üretilir; ardışık iki sabit nokta
-      arasındaki bölüm bir "hat" sayılır.</p>
+      arasındaki bölüm bir "hat" sayılır. Noktaları girdikten/düzenledikten sonra <strong>Hesapla</strong>
+      butonuna basın; sonuçlar yalnızca bu butona bastığınızda güncel verilerinize göre yeniden hesaplanır.</p>
     <table id="points-table">
       <thead>
         <tr>
@@ -49,6 +50,9 @@
     </table>
     <div class="row-actions">
       <button class="secondary" id="add-point">+ Nokta ekle</button>
+    </div>
+    <div class="calculate-bar">
+      <button id="calculate">Hesapla</button>
     </div>
   </section>
 

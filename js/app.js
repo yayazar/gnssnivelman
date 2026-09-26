@@ -121,21 +121,8 @@ function renderPointsTable() {
   });
 }
 
-let autoCalcTimer = null;
-// Girilen nokta listesi dışında her şey tamamen otomatiktir: herhangi bir
-// nokta değeri değiştiğinde nivelman ölçüleri, hatlar ve dengeleme kısa bir
-// gecikmeyle (art arda tuş vuruşlarını tek seferde işlemek için) yeniden
-// hesaplanır — elle bir "Hesapla" adımı yoktur.
-function scheduleAutoCalculate(delay = 200) {
-  const statusEl = document.getElementById("auto-calc-status");
-  if (statusEl) statusEl.textContent = "⟳ Hesaplanıyor…";
-  if (autoCalcTimer) clearTimeout(autoCalcTimer);
-  autoCalcTimer = setTimeout(() => {
-    calculate();
-    if (statusEl) statusEl.textContent = "✓ Dengeleme otomatik olarak güncellendi";
-  }, delay);
-}
-
+// Noktalar tablosu girildikten sonra hesaplama YALNIZCA "Hesapla" butonuna
+// basıldığında yapılır — girdiler değiştikçe otomatik yeniden hesaplanmaz.
 function attachTableListeners() {
   document.querySelector("#points-table tbody").addEventListener("input", (e) => {
     const t = e.target;
@@ -144,19 +131,14 @@ function attachTableListeners() {
     const field = t.dataset.field;
     if (["y", "x", "height"].includes(field)) {
       state.points[idx][field] = t.value === "" ? null : Number(t.value);
-      scheduleAutoCalculate();
     } else if (field === "name") {
       // Tabloyu her tuş vuruşunda yeniden çizmek input'un odağını kaybettirir;
       // isim değişince hemen renderPointsTable() çağrılmıyor (aşağıdaki
-      // "focusout" dinleyicisi odak kaybolduğunda tabloyu tazeler). Otomatik
-      // ölçüler isimlerden değil dizideki KONUMDAN türetildiği için başka
-      // hiçbir yerde referans güncellemesi gerekmez.
+      // "focusout" dinleyicisi odak kaybolduğunda tabloyu tazeler).
       state.points[idx].name = t.value;
-      scheduleAutoCalculate();
     } else {
       state.points[idx][field] = t.value;
       renderPointsTable();
-      scheduleAutoCalculate();
     }
   });
 
@@ -168,7 +150,6 @@ function attachTableListeners() {
     if (e.target.dataset.action === "remove-point") {
       state.points.splice(Number(e.target.dataset.idx), 1);
       renderPointsTable();
-      scheduleAutoCalculate();
     }
   });
 
@@ -176,8 +157,9 @@ function attachTableListeners() {
     const n = state.points.length + 1;
     state.points.push({ name: `P${n}`, type: "unknown", height: null, y: null, x: null });
     renderPointsTable();
-    scheduleAutoCalculate();
   });
+
+  document.getElementById("calculate").addEventListener("click", calculate);
 }
 
 function calculate() {
