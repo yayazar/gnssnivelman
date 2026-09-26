@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GNSS Jeodezik Nivelman Ağı Dengelemesi</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header>
+  <h1>GNSS Jeodezik Nivelman Ağı Dengelemesi</h1>
+  <p>Nivelman yükseklik farkı ölçüleri ile GNSS (elipsoidal yükseklik − jeoit ondülasyonu) ölçülerinin
+     en küçük kareler yöntemiyle (dolaylı ölçüler yöntemi) birleşik dengelemesi</p>
+</header>
+
+<main>
+  <div id="error-box" class="hidden"></div>
+
+  <section class="panel">
+    <h2>1. Noktalar</h2>
+    <p class="panel-desc">Sabit (mesnet) noktaların yüksekliği bilinir ve değiştirilmez. Bilinmeyen noktaların
+      yüksekliği dengeleme sonucunda hesaplanır.</p>
+    <table id="points-table">
+      <thead>
+        <tr><th>Nokta adı</th><th>Tür</th><th>Yükseklik (m) — yalnız sabit noktalar için</th><th></th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="row-actions">
+      <button class="secondary" id="add-point">+ Nokta ekle</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. Nivelman (geometrik nivelman) ölçüleri</h2>
+    <p class="panel-desc">Δh = H(varış) − H(kalkış). Mesafe (S) km cinsindendir; standart sapma otomatik olarak
+      σ = k·√S formülüyle hesaplanır (aşağıdaki k parametresi), isterseniz her ölçü için elle σ girebilirsiniz.</p>
+    <table id="leveling-table">
+      <thead>
+        <tr><th>Kalkış</th><th>Varış</th><th>Δh (m)</th><th>Mesafe S (km)</th><th>σ (m, elle)</th><th></th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="row-actions">
+      <button class="secondary" id="add-leveling">+ Nivelman ölçüsü ekle</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. GNSS ölçüleri (elipsoidal yükseklik + jeoit ondülasyonu)</h2>
+    <p class="panel-desc">Ortometrik yükseklik: H = h − N (h: GNSS elipsoidal yükseklik, N: jeoit ondülasyonu).
+      Bu değer, ilgili nokta için bir "sözde ölçü" olarak dengelemeye dahil edilir.</p>
+    <table id="gnss-table">
+      <thead>
+        <tr><th>Nokta</th><th>h — elipsoidal yükseklik (m)</th><th>N — jeoit ondülasyonu (m)</th><th>σ (m, elle)</th><th></th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="row-actions">
+      <button class="secondary" id="add-gnss">+ GNSS ölçüsü ekle</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>4. Dengeleme parametreleri</h2>
+    <div class="params-grid">
+      <div class="param-field">
+        <label for="param-k">Nivelman hassasiyet katsayısı k (m / √km)</label>
+        <input type="number" step="any" id="param-k" />
+      </div>
+      <div class="param-field">
+        <label for="param-sigma-gnss">Varsayılan GNSS yükseklik standart sapması σ (m)</label>
+        <input type="number" step="any" id="param-sigma-gnss" />
+      </div>
+    </div>
+  </section>
+
+  <div class="calculate-bar">
+    <button id="calculate">Dengelemeyi Hesapla</button>
+  </div>
+
+  <section class="panel hidden" id="results-section">
+    <h2>Sonuçlar</h2>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="value" id="stat-nobs">-</div>
+        <div class="label">Toplam ölçü sayısı</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="stat-unknowns">-</div>
+        <div class="label">Bilinmeyen sayısı</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="stat-redundancy">-</div>
+        <div class="label">Fazla ölçü (serbestlik derecesi)</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="stat-sigma0">-</div>
+        <div class="label">Birim ağırlıklı ölçü hatası (σ₀)</div>
+      </div>
+    </div>
+
+    <h3>Dengeli yükseklikler</h3>
+    <table id="heights-table">
+      <thead>
+        <tr><th>Nokta</th><th>Dengeli H (m)</th><th>Standart sapma</th><th>%95 güven aralığı</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Kalanlar (rezidüeller)</h3>
+    <p class="panel-desc">Normalleştirilmiş kalan |v·√w| &gt; 2 turuncu, &gt; 3 kırmızı ile işaretlenir
+      (olası kaba hata / uyuşumsuz ölçü uyarısı).</p>
+    <table id="residuals-table">
+      <thead>
+        <tr><th>Ölçü</th><th>Tür</th><th>Ölçü değeri</th><th>σ</th><th>Kalan v (m)</th><th>Normalleştirilmiş v</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+
+<footer>
+  Dolaylı ölçüler (parametrik) yöntemi ile en küçük kareler dengelemesi — istemci tarafında (tarayıcıda) hesaplanır, veri sunucuya gönderilmez.
+</footer>
+
+<script src="js/matrix.js"></script>
+<script src="js/adjustment.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
