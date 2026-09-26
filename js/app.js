@@ -253,7 +253,22 @@ function renderResults(result) {
 // haritadaki konum gösterimini günceller; bu yüzden "Hesapla" gerekmeden,
 // en son hesaplanan noktalarla anında yeniden çizilebilir.
 let lastPointsForViz = null;
+
+function updateEpsgName() {
+  const epsgCode = document.getElementById("epsg-input").value;
+  const nameEl = document.getElementById("epsg-name");
+  const name = epsgDisplayName(epsgCode);
+  if (name) {
+    nameEl.textContent = "= " + name;
+    nameEl.classList.remove("epsg-name-error");
+  } else {
+    nameEl.textContent = epsgCode.trim() ? "Tanınmayan EPSG kodu" : "";
+    nameEl.classList.toggle("epsg-name-error", !!epsgCode.trim());
+  }
+}
+
 function redrawMap() {
+  updateEpsgName();
   if (!lastPointsForViz) return;
   const epsgCode = document.getElementById("epsg-input").value;
   renderNetworkSketch(
@@ -404,7 +419,7 @@ function attachToolbarListeners() {
     btn.addEventListener("click", () => downloadResults(btn.dataset.downloadFormat));
   });
 
-  document.getElementById("epsg-input").addEventListener("change", redrawMap);
+  document.getElementById("epsg-input").addEventListener("input", redrawMap);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -415,4 +430,5 @@ document.addEventListener("DOMContentLoaded", () => {
   // yüklenmiş olarak görünür, ancak sonuçlar yalnızca kullanıcı "Hesapla"ya
   // bastığında üretilir.
   updateCalcStatus();
+  updateEpsgName();
 });

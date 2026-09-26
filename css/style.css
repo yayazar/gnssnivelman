@@ -361,6 +361,16 @@ code {
   flex: 0 0 auto;
 }
 
+.epsg-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--good);
+}
+
+.epsg-name.epsg-name-error {
+  color: var(--danger);
+}
+
 .epsg-note {
   margin: 0;
   flex-basis: 100%;
