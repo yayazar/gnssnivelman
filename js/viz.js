@@ -126,16 +126,23 @@ function renderNetworkSketch(container, points, plane) {
     }
   }
 
+  let hasExtrapolation = false;
   const pointSvgParts = [];
   coordPts.forEach((p) => {
     const s = toScreen(p);
-    const color = p.type === "fixed" ? VIZ_COLORS.fixed : VIZ_COLORS.unknown;
+    const isExtrap = !!p.isExtrapolation;
+    if (isExtrap) hasExtrapolation = true;
+    const color = p.type === "fixed" ? VIZ_COLORS.fixed : isExtrap ? VIZ_COLORS.critical : VIZ_COLORS.unknown;
     const hLabel = Number.isFinite(p.H)
       ? p.type === "fixed"
         ? `H = ${p.H.toFixed(4)} m (bilinen)`
         : `H = ${p.H.toFixed(4)} m (hesaplanan)`
       : "H = —";
-    const tip = `<strong>${vizEscape(p.name)}</strong><br/>${hLabel}${Number.isFinite(p.h) ? `<br/>h (GNSS) = ${p.h.toFixed(4)} m` : ""}`;
+    const warnLine = isExtrap ? "<br/>⚠ RS alanı dışında: jeoit düzlemi burada ekstrapolasyon yapıyor" : "";
+    const tip = `<strong>${vizEscape(p.name)}</strong><br/>${hLabel}${Number.isFinite(p.h) ? `<br/>h (GNSS) = ${p.h.toFixed(4)} m` : ""}${warnLine}`;
+    const ring = isExtrap
+      ? `<circle cx="${s.sx.toFixed(1)}" cy="${s.sy.toFixed(1)}" r="12" fill="none" stroke="${VIZ_COLORS.critical}" stroke-width="1.5" stroke-dasharray="3 3" />`
+      : "";
     if (p.type === "fixed") {
       pointSvgParts.push(`
         <rect x="${(s.sx - 7).toFixed(1)}" y="${(s.sy - 7).toFixed(1)}" width="14" height="14" fill="${color}" stroke="${VIZ_COLORS.surface}" stroke-width="2"
@@ -144,6 +151,7 @@ function renderNetworkSketch(container, points, plane) {
       `);
     } else {
       pointSvgParts.push(`
+        ${ring}
         <circle cx="${s.sx.toFixed(1)}" cy="${s.sy.toFixed(1)}" r="7" fill="${color}" stroke="${VIZ_COLORS.surface}" stroke-width="2"
           class="viz-hit" data-tip="${vizEscape(tip)}" />
         <text x="${(s.sx + 10).toFixed(1)}" y="${(s.sy - 8).toFixed(1)}" font-size="12" fill="${VIZ_COLORS.ink}" font-weight="600">${vizEscape(p.name)}</text>
@@ -187,6 +195,7 @@ function renderNetworkSketch(container, points, plane) {
       <span class="viz-legend-item"><span class="viz-swatch viz-swatch-square" style="background:${VIZ_COLORS.fixed}"></span>RS (sabit) nokta</span>
       <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.unknown}"></span>Yeni (bilinmeyen) nokta</span>
       ${fixedPts.length >= 3 ? `<span class="viz-legend-item"><span class="viz-swatch viz-swatch-dashed" style="border-color:${VIZ_COLORS.fixed}"></span>RS noktalarının çevrelediği alan (jeoit modeli bölgesi)</span>` : ""}
+      ${hasExtrapolation ? `<span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.critical}"></span>⚠ Ekstrapolasyon (RS alanı dışında)</span>` : ""}
     </div>
   `;
 
@@ -223,9 +232,9 @@ function convexHull(pts) {
 function renderHeightProfile(container, perPoint, rms) {
   const items = perPoint.map((p) => {
     if (p.type === "fixed") {
-      return { name: p.name, type: "fixed", H: p.H, ciLow: p.H, ciHigh: p.H };
+      return { name: p.name, type: "fixed", H: p.H, ciLow: p.H, ciHigh: p.H, isExtrapolation: false };
     }
-    return { name: p.name, type: "unknown", H: p.H, ciLow: p.H - rms, ciHigh: p.H + rms };
+    return { name: p.name, type: "unknown", H: p.H, ciLow: p.H - rms, ciHigh: p.H + rms, isExtrapolation: !!p.isExtrapolation };
   });
 
   if (items.length === 0) {
@@ -272,7 +281,7 @@ function renderHeightProfile(container, perPoint, rms) {
   items.forEach((it, i) => {
     const x = xOf(i);
     const yC = yOf(it.H);
-    const color = it.type === "fixed" ? VIZ_COLORS.fixed : VIZ_COLORS.unknown;
+    const color = it.type === "fixed" ? VIZ_COLORS.fixed : it.isExtrapolation ? VIZ_COLORS.critical : VIZ_COLORS.unknown;
 
     if (it.type === "unknown") {
       const yLow = yOf(it.ciLow);
@@ -294,7 +303,7 @@ function renderHeightProfile(container, perPoint, rms) {
     const tip =
       it.type === "fixed"
         ? `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m (bilinen, RS)`
-        : `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m (hesaplanan)<br/>Model RMS ile yaklaşık aralık: [${it.ciLow.toFixed(4)}, ${it.ciHigh.toFixed(4)}]`;
+        : `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m (hesaplanan)<br/>Model RMS ile yaklaşık aralık: [${it.ciLow.toFixed(4)}, ${it.ciHigh.toFixed(4)}]${it.isExtrapolation ? "<br/>⚠ RS alanı dışında: ekstrapolasyon" : ""}`;
     hits.push(`<rect x="${x - 16}" y="${padT}" width="32" height="${plotH}" fill="transparent" class="viz-hit" data-tip="${vizEscape(tip)}" />`);
   });
 

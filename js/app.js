@@ -139,27 +139,41 @@ function renderResults(result) {
   document.getElementById("stat-redundancy").textContent = fixedCount - 3;
   document.getElementById("stat-sigma0").textContent = fmt(result.plane.rms * 1000, 1) + " mm";
 
+  const extrapolationCount = result.perPoint.filter((p) => p.isExtrapolation).length;
+
   const noteEl = document.getElementById("redundancy-note");
+  let note;
   if (fixedCount === 3) {
-    noteEl.textContent =
+    note =
       "Not: Tam olarak 3 RS noktası girildiği için jeoit düzlemi bu üç noktadan tam geçer (RMS ≈ 0) — fazla ölçü " +
       "yoktur, dolayısıyla düzlem modelinin doğruluğu bağımsız olarak sınanamaz. Daha güvenilir bir sonuç için " +
       "alanı çevreleyen en az 4 RS noktası kullanmanız önerilir.";
-    noteEl.classList.remove("hidden");
   } else {
-    noteEl.textContent =
+    note =
       `Not: Jeoit düzlemi ${fixedCount} RS noktasına en küçük kareler ile oturtulmuştur; RS noktalarındaki ` +
       `kalanların RMS'i ${fmt(result.plane.rms * 1000, 1)} mm'dir — bu, düzlem modelinin bölgeyi ne kadar iyi ` +
       "temsil ettiğinin bir göstergesidir. Yeni noktalar için gösterilen aralık, bu RMS'e dayanan kaba bir " +
       "enterpolasyon belirsizliği göstergesidir; gerçek bir kovaryans analizi değildir.";
-    noteEl.classList.remove("hidden");
   }
+  if (extrapolationCount > 0) {
+    note +=
+      ` ⚠ ${extrapolationCount} yeni nokta, RS noktalarının çevrelediği alanın DIŞINDA kalıyor — bu noktalarda ` +
+      "jeoit düzlemi enterpolasyon değil ekstrapolasyon yapıyor ve sonuç önemli ölçüde daha az güvenilir olabilir " +
+      "(aşağıdaki tabloda ve krokide ayrıca işaretlenmiştir).";
+  }
+  noteEl.textContent = note;
+  noteEl.classList.remove("hidden");
 
   const heightsBody = document.querySelector("#heights-table tbody");
   heightsBody.innerHTML = "";
   result.perPoint.forEach((p) => {
     const tr = document.createElement("tr");
-    const durum = p.type === "fixed" ? "Sabit (RS, bilinen H)" : "Hesaplanan (GNSS + jeoit enterpolasyonu)";
+    if (p.isExtrapolation) tr.classList.add("flag-warn");
+    const durum = p.type === "fixed"
+      ? "Sabit (RS, bilinen H)"
+      : p.isExtrapolation
+      ? "⚠ Ekstrapolasyon (RS alanı dışında)"
+      : "Hesaplanan (GNSS + jeoit enterpolasyonu)";
     tr.innerHTML = `
       <td>${vizEscape(p.name)}</td>
       <td>${fmt(p.h, 4)}</td>
@@ -173,7 +187,18 @@ function renderResults(result) {
 
   renderPlaneReport(result);
 
-  renderNetworkSketch(document.getElementById("network-sketch"), state.points, result.plane);
+  const isExtrapolationByName = {};
+  const hByName = {};
+  result.perPoint.forEach((p) => {
+    isExtrapolationByName[p.name] = p.isExtrapolation;
+    hByName[p.name] = p.H;
+  });
+  const pointsForViz = state.points.map((p) => ({
+    ...p,
+    H: hByName[p.name] ?? p.H,
+    isExtrapolation: isExtrapolationByName[p.name] ?? false,
+  }));
+  renderNetworkSketch(document.getElementById("network-sketch"), pointsForViz, result.plane);
   renderHeightProfile(document.getElementById("height-profile"), result.perPoint, result.plane.rms);
 }
 

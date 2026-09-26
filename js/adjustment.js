@@ -80,8 +80,48 @@ function fitGeoidPlane(fixedPts) {
   return { a, b, c, predict, residuals, rms };
 }
 
+// Basit dışbükey zarf (Andrew monotone chain), gerçek Y/X koordinatlarında.
+function convexHullXY(pts) {
+  const sorted = [...pts].sort((a, b) => a.y - b.y || a.x - b.x);
+  const cross = (o, a, b) => (a.y - o.y) * (b.x - o.x) - (a.x - o.x) * (b.y - o.y);
+  const lower = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+
+// Ray-casting: nokta çokgenin içinde (ya da sınırında) mı? RS noktalarının
+// çevrelediği alanın dışında kalan yeni noktalar, jeoit düzleminin
+// EKSTRAPOLASYON yaptığı (dolayısıyla çok daha az güvenilir olduğu)
+// noktalardır — bkz. runGnssGeoidAdjustment.
+function pointInPolygon(pt, poly) {
+  if (poly.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const yi = poly[i].y, xi = poly[i].x;
+    const yj = poly[j].y, xj = poly[j].x;
+    const onSegment =
+      Math.min(yi, yj) <= pt.y && pt.y <= Math.max(yi, yj) && Math.min(xi, xj) <= pt.x && pt.x <= Math.max(xi, xj) &&
+      Math.abs((xj - xi) * (pt.y - yi) - (pt.x - xi) * (yj - yi)) < 1e-9;
+    if (onSegment) return true;
+    const intersects = yi > pt.y !== yj > pt.y && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
 // points: [{name, type: "fixed"|"unknown", y, x, h, H?}]
-// Döner: { plane, perPoint: [{name, type, h, N, H, residualMm?}] }
+// Döner: { plane, perPoint: [{name, type, h, N, H, residualMm?, isExtrapolation?}] }
 function runGnssGeoidAdjustment(points) {
   if (points.length < 1) throw new Error("En az bir nokta girilmeli.");
 
@@ -104,6 +144,7 @@ function runGnssGeoidAdjustment(points) {
   const plane = fitGeoidPlane(fixedPts);
   const residualByName = {};
   plane.residuals.forEach((r) => (residualByName[r.name] = r.residualM));
+  const hull = convexHullXY(fixedPts);
 
   const perPoint = points.map((p) => {
     const Npredicted = plane.predict(p.y, p.x);
@@ -116,6 +157,7 @@ function runGnssGeoidAdjustment(points) {
         Npredicted,
         H: p.H,
         residualMm: (residualByName[p.name] ?? 0) * 1000,
+        isExtrapolation: false,
       };
     }
     return {
@@ -126,8 +168,11 @@ function runGnssGeoidAdjustment(points) {
       Npredicted,
       H: p.h - Npredicted,
       residualMm: null,
+      // RS noktalarının çevrelediği alanın dışında kalan yeni noktalarda jeoit
+      // düzlemi ENTERPOLASYON değil EKSTRAPOLASYON yapar — çok daha az güvenilirdir.
+      isExtrapolation: !pointInPolygon({ y: p.y, x: p.x }, hull),
     };
   });
 
-  return { plane, perPoint };
+  return { plane, perPoint, hull };
 }
