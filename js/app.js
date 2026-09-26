@@ -1,21 +1,53 @@
 // Uygulama durumu ve arayüz mantığı
 
+// Örnek/test verisi: Rize (Karadeniz) bölgesinde, sahilden yaylaya çıkan
+// ~16 km'lik bir hat nivelmanını temsil eder. Koordinatlar (Y=Doğu, X=Kuzey)
+// UTM benzeri gerçeğe yakın değerlerdir; GERÇEK/RESMİ NİRENGİ-RÖPER
+// KOORDİNATLARI DEĞİLDİR, yalnızca ölçek ve performans testi amaçlıdır.
 const state = {
+  // Noktalar kasıtlı olarak güzergah (hat) sırasıyla listelenmiştir; bu sıra
+  // hem noktalar tablosunda hem de yükseklik profilinde okunabilirliği artırır.
   points: [
-    { name: "R1", type: "fixed", height: 250.0, y: 1000, x: 1000 },
-    { name: "R2", type: "fixed", height: 255.48, y: 4650, x: 1500 },
-    { name: "N1", type: "unknown", height: null, y: 2200, x: 1050 },
-    { name: "N2", type: "unknown", height: null, y: 3650, x: 1450 },
+    { name: "RP1", type: "fixed", height: 4.235, y: 548250, x: 4487600 },
+    { name: "N1", type: "unknown", height: null, y: 548500, x: 4486800 },
+    { name: "N2", type: "unknown", height: null, y: 548950, x: 4485950 },
+    { name: "N3", type: "unknown", height: null, y: 549400, x: 4485000 },
+    { name: "N4", type: "unknown", height: null, y: 549250, x: 4483950 },
+    { name: "RP2", type: "fixed", height: 63.87, y: 549600, x: 4482900 },
+    { name: "N5", type: "unknown", height: null, y: 549300, x: 4481700 },
+    { name: "N6", type: "unknown", height: null, y: 549750, x: 4480650 },
+    { name: "N7", type: "unknown", height: null, y: 549500, x: 4479500 },
+    { name: "N8", type: "unknown", height: null, y: 549900, x: 4478400 },
+    { name: "RP3", type: "fixed", height: 270.955, y: 549650, x: 4477250 },
+    { name: "N9", type: "unknown", height: null, y: 550000, x: 4476150 },
+    { name: "N10", type: "unknown", height: null, y: 549800, x: 4475000 },
+    { name: "N11", type: "unknown", height: null, y: 550150, x: 4473900 },
+    { name: "N12", type: "unknown", height: null, y: 549950, x: 4472750 },
   ],
   leveling: [
-    { from: "R1", to: "N1", dh: 3.215, dist: 1.2, sigma: null },
-    { from: "N1", to: "N2", dh: 2.845, dist: 1.5, sigma: null },
-    { from: "N2", to: "R2", dh: -0.612, dist: 1.0, sigma: null },
-    { from: "R1", to: "N2", dh: 6.045, dist: 2.4, sigma: null },
+    { from: "RP1", to: "N1", dh: 5.395, dist: 0.84, sigma: null },
+    { from: "N1", to: "N2", dh: 8.235, dist: 0.96, sigma: null },
+    { from: "N2", to: "N3", dh: 11.565, dist: 1.05, sigma: null },
+    { from: "N3", to: "N4", dh: 15.205, dist: 1.06, sigma: null },
+    { from: "N4", to: "RP2", dh: 19.247, dist: 1.11, sigma: null },
+    { from: "RP1", to: "RP2", dh: 59.658, dist: 4.89, sigma: null },
+    { from: "RP2", to: "N5", dh: 31.395, dist: 1.24, sigma: null },
+    { from: "N5", to: "N6", dh: 37.435, dist: 1.14, sigma: null },
+    { from: "N6", to: "N7", dh: 42.375, dist: 1.18, sigma: null },
+    { from: "N7", to: "N8", dh: 46.395, dist: 1.17, sigma: null },
+    { from: "N8", to: "RP3", dh: 49.52, dist: 1.18, sigma: null },
+    { from: "RP3", to: "N9", dh: 47.44, dist: 1.15, sigma: null },
+    { from: "N9", to: "N10", dh: 51.315, dist: 1.17, sigma: null },
+    { from: "N10", to: "N11", dh: 45.47, dist: 1.15, sigma: null },
+    { from: "N11", to: "N12", dh: 47.35, dist: 1.17, sigma: null },
   ],
   gnss: [
-    { point: "N1", h: 268.9, N: 15.66, sigma: null },
-    { point: "N2", h: 271.7, N: 15.615, sigma: null },
+    { point: "N2", h: 50.43, N: 32.6, sigma: null },
+    { point: "N4", h: 77.275, N: 32.65, sigma: null },
+    { point: "N6", h: 165.35, N: 32.75, sigma: null },
+    { point: "N8", h: 254.17, N: 32.85, sigma: null },
+    { point: "N9", h: 351.325, N: 32.95, sigma: null },
+    { point: "N11", h: 448.24, N: 33.05, sigma: null },
   ],
   params: {
     k: 0.003, // m / sqrt(km) - nivelman hassasiyet katsayısı
@@ -31,8 +63,9 @@ const state = {
   ],
   activeClassIndex: 1,
   devreler: [
-    { name: "Devre-1 (kapalı: R1-N1-N2-R1)", path: "R1,N1,N2,R1" },
-    { name: "Hat-1 (mesnetli: R1→R2)", path: "R1,N1,N2,R2" },
+    { name: "Devre-1 (kapalı: RP1-N1-N2-N3-N4-RP2-RP1)", path: "RP1,N1,N2,N3,N4,RP2,RP1" },
+    { name: "Hat-1 (mesnetli: RP1→RP2)", path: "RP1,N1,N2,N3,N4,RP2" },
+    { name: "Hat-2 (mesnetli: RP2→RP3)", path: "RP2,N5,N6,N7,N8,RP3" },
   ],
 };
 

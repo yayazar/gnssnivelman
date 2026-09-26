@@ -118,6 +118,7 @@ function renderNetworkSketch(container, points, levelingObs, residualByLabel) {
   const pointByName = {};
   coordPts.forEach((p) => (pointByName[p.name] = p));
 
+  let hasControlEdge = false;
   const edgeSvgParts = [];
   const edgeHitParts = [];
   edges.forEach((o) => {
@@ -125,14 +126,19 @@ function renderNetworkSketch(container, points, levelingObs, residualByLabel) {
     const b = toScreen(pointByName[o.to]);
     const label = `${o.from} → ${o.to}`;
     const res = residualByLabel[label];
+    // Her iki ucu da sabit (mesnet) olan ölçüler dengelemeye katılmaz (bkz. adjustment.js);
+    // bunlar yalnızca bağımsız bir kontrol/devre ölçüsüdür ve kesikli çizgiyle ayırt edilir.
+    const isControlEdge = !res && pointByName[o.from].type === "fixed" && pointByName[o.to].type === "fixed";
+    if (isControlEdge) hasControlEdge = true;
     const color = res ? statusColorForNormalizedResidual(res.vNormalized) : VIZ_COLORS.mutedInk;
-    const midX = (a.sx + b.sx) / 2;
-    const midY = (a.sy + b.sy) / 2;
+    const dash = isControlEdge ? ' stroke-dasharray="6 5"' : "";
     edgeSvgParts.push(
-      `<line x1="${a.sx.toFixed(1)}" y1="${a.sy.toFixed(1)}" x2="${b.sx.toFixed(1)}" y2="${b.sy.toFixed(1)}" stroke="${color}" stroke-width="2.5" stroke-linecap="round" />`
+      `<line x1="${a.sx.toFixed(1)}" y1="${a.sy.toFixed(1)}" x2="${b.sx.toFixed(1)}" y2="${b.sy.toFixed(1)}" stroke="${color}" stroke-width="2.5" stroke-linecap="round"${dash} />`
     );
     const tip = res
       ? `<strong>${vizEscape(label)}</strong><br/>Δh = ${res.raw.toFixed(4)} m · S = ${(o.dist ?? 0).toFixed(2)} km<br/>Kalan v = ${res.v.toFixed(4)} m (${statusLabelForNormalizedResidual(res.vNormalized)})`
+      : isControlEdge
+      ? `<strong>${vizEscape(label)}</strong><br/>Δh = ${o.dh.toFixed(4)} m · S = ${(o.dist ?? 0).toFixed(2)} km<br/>İki ucu da sabit: dengelemeye katılmaz, yalnızca bağımsız kontrol/devre ölçüsüdür.`
       : `<strong>${vizEscape(label)}</strong><br/>Δh = ${o.dh.toFixed(4)} m`;
     edgeHitParts.push(
       `<line x1="${a.sx.toFixed(1)}" y1="${a.sy.toFixed(1)}" x2="${b.sx.toFixed(1)}" y2="${b.sy.toFixed(1)}" stroke="transparent" stroke-width="14" data-tip="${vizEscape(tip)}" class="viz-hit" />`
@@ -191,6 +197,7 @@ function renderNetworkSketch(container, points, levelingObs, residualByLabel) {
       <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.good}"></span>Uygun ölçü</span>
       <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.serious}"></span>Uyarı</span>
       <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.critical}"></span>Kritik</span>
+      ${hasControlEdge ? `<span class="viz-legend-item"><span class="viz-swatch viz-swatch-dashed" style="background:${VIZ_COLORS.mutedInk}"></span>Kontrol ölçüsü (dengelemeye dahil değil)</span>` : ""}
     </div>
   `;
 
