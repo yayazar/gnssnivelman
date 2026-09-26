@@ -171,3 +171,92 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
     residualRows,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Yönetmelik toleransları: nivelman devresi/hattı kapanma kontrolü
+// ---------------------------------------------------------------------------
+//
+// Bir devre (kapalı hat: başlangıç == bitiş noktası) veya iki mesnet noktası
+// arasındaki bir hat için, ölçülen yükseklik farklarının toplamı ile
+// beklenen (bilinen) değer arasındaki fark "kapanma hatası"dır. Bu fonksiyon
+// yalnızca ham ölçülerle (dengeleme sonucu kullanmadan) bağımsız bir kapanma
+// kontrolü yapar — yönetmeliklerde öngörülen klasik nivelman kalite kontrolü budur.
+function evaluateRoute(routeName, pathNames, points, levelingObs) {
+  const pointByName = {};
+  points.forEach((p) => (pointByName[p.name] = p));
+
+  if (!Array.isArray(pathNames) || pathNames.length < 2) {
+    return { name: routeName, error: "Hat en az iki nokta içermeli." };
+  }
+  for (const name of pathNames) {
+    if (!pointByName[name]) {
+      return { name: routeName, error: `Nokta tanımsız: ${name}` };
+    }
+  }
+
+  // Ardışık nokta çiftleri arasında (yönü fark etmeksizin) nivelman ölçüsü ara
+  let sumDh = 0;
+  let lengthKm = 0;
+  const segments = [];
+  for (let i = 0; i < pathNames.length - 1; i++) {
+    const a = pathNames[i];
+    const b = pathNames[i + 1];
+    const fwd = levelingObs.find((o) => o.from === a && o.to === b);
+    const bwd = !fwd ? levelingObs.find((o) => o.from === b && o.to === a) : null;
+    if (!fwd && !bwd) {
+      return { name: routeName, error: `Ölçü bulunamadı: ${a} ↔ ${b}` };
+    }
+    const obs = fwd || bwd;
+    const dh = fwd ? obs.dh : -obs.dh;
+    const dist = obs.dist || 0;
+    sumDh += dh;
+    lengthKm += dist;
+    segments.push({ from: a, to: b, dh, dist });
+  }
+
+  const startPt = pointByName[pathNames[0]];
+  const endPt = pointByName[pathNames[pathNames.length - 1]];
+  const isClosedLoop = pathNames[0] === pathNames[pathNames.length - 1];
+
+  let expected = null;
+  let kind = null;
+  if (isClosedLoop) {
+    expected = 0;
+    kind = "Kapalı devre";
+  } else if (startPt.type === "fixed" && endPt.type === "fixed") {
+    expected = endPt.height - startPt.height;
+    kind = "Mesnetli hat";
+  } else {
+    return {
+      name: routeName,
+      error: "Kapanma hesaplanamaz: hat kapalı bir devre olmalı ya da iki ucu da sabit (mesnet) noktalarda olmalı.",
+    };
+  }
+
+  const misclosureM = sumDh - expected;
+  return {
+    name: routeName,
+    kind,
+    path: pathNames,
+    segments,
+    lengthKm,
+    sumDh,
+    expected,
+    misclosureM,
+    misclosureMm: misclosureM * 1000,
+  };
+}
+
+// Kapanma hatası toleransı: T = katsayı(mm/√km) · √K(km)
+function toleranceMm(coeffMmPerSqrtKm, lengthKm) {
+  return coeffMmPerSqrtKm * Math.sqrt(Math.max(lengthKm, 0));
+}
+
+// Bir standart sapma değerini (mm), tanımlı doğruluk sınıfları arasından
+// karşılayabildiği en sıkı (en küçük eşikli) sınıfa atar.
+function classifyByStdev(stdevMm, classes, thresholdField) {
+  const eligible = classes
+    .filter((c) => Number.isFinite(c[thresholdField]) && c[thresholdField] > 0 && stdevMm <= c[thresholdField])
+    .sort((a, b) => a[thresholdField] - b[thresholdField]);
+  return eligible.length > 0 ? eligible[0].name : "Sınıf dışı";
+}

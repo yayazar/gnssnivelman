@@ -22,13 +22,15 @@
       yüksekliği dengeleme sonucunda hesaplanır.</p>
     <table id="points-table">
       <thead>
-        <tr><th>Nokta adı</th><th>Tür</th><th>Yükseklik (m) — yalnız sabit noktalar için</th><th></th></tr>
+        <tr><th>Nokta adı</th><th>Tür</th><th>Yükseklik (m) — yalnız sabit noktalar için</th><th>Y — Doğu (m)</th><th>X — Kuzey (m)</th><th></th></tr>
       </thead>
       <tbody></tbody>
     </table>
     <div class="row-actions">
       <button class="secondary" id="add-point">+ Nokta ekle</button>
     </div>
+    <p class="panel-desc">Y (Doğu) ve X (Kuzey) koordinatları isteğe bağlıdır; yalnızca aşağıdaki "Görselleştirme"
+      bölümündeki ölçekli ağ krokisini çizmek için kullanılır, dengeleme hesabını etkilemez.</p>
   </section>
 
   <section class="panel">
@@ -62,7 +64,45 @@
   </section>
 
   <section class="panel">
-    <h2>4. Dengeleme parametreleri</h2>
+    <h2>4. Yönetmelik doğruluk sınıfları (BÖHHBÜY)</h2>
+    <p class="panel-desc"><strong>Not:</strong> Aşağıdaki katsayılar örnek/varsayılan değerlerdir. Yürürlükteki
+      Büyük Ölçekli Harita ve Harita Bilgileri Üretim Yönetmeliği'nin güncel metninden teyit ederek düzenleyin.
+      Soldaki radyo düğmesiyle hesapta kullanılacak "aktif sınıf"ı seçin.</p>
+    <table id="accuracy-table">
+      <thead>
+        <tr>
+          <th>Aktif</th><th>Sınıf adı</th>
+          <th>Devre kapanma katsayısı (mm/√km)</th>
+          <th>GNSS yükseklik σ sınırı (mm)</th>
+          <th>Nokta σ sınırı (mm)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="row-actions">
+      <button class="secondary" id="add-class">+ Sınıf ekle</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>5. Nivelman devreleri / hatları (kapanma kontrolü)</h2>
+    <p class="panel-desc">Bir kapalı devre (ilk ve son nokta aynı) ya da iki sabit (mesnet) nokta arasındaki bir hat
+      tanımlayın; ardışık noktalar arasında girilmiş bir nivelman ölçüsü olmalıdır. Nokta adlarını virgülle ayırarak
+      yazın, örn. <code>R1,N1,N2,R1</code>.</p>
+    <table id="devreler-table">
+      <thead>
+        <tr><th>Devre / hat adı</th><th>Nokta yolu (virgülle ayrılmış)</th><th></th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="row-actions">
+      <button class="secondary" id="add-devre">+ Devre/hat ekle</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>6. Dengeleme parametreleri</h2>
     <div class="params-grid">
       <div class="param-field">
         <label for="param-k">Nivelman hassasiyet katsayısı k (m / √km)</label>
@@ -102,9 +142,11 @@
     </div>
 
     <h3>Dengeli yükseklikler</h3>
+    <p class="panel-desc">"Sınıf" sütunu, noktanın standart sapmasının hangi tanımlı doğruluk sınıfının nokta σ
+      sınırını karşıladığını gösterir (en sıkı uyan sınıf). Satır, seçili aktif sınıfın eşiğini aşarsa vurgulanır.</p>
     <table id="heights-table">
       <thead>
-        <tr><th>Nokta</th><th>Dengeli H (m)</th><th>Standart sapma</th><th>%95 güven aralığı</th></tr>
+        <tr><th>Nokta</th><th>Dengeli H (m)</th><th>Standart sapma</th><th>%95 güven aralığı</th><th>Sınıf</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -118,6 +160,34 @@
       </thead>
       <tbody></tbody>
     </table>
+
+    <h3>Devre / hat kapanma kontrolü</h3>
+    <p class="panel-desc">Ham ölçülerden (dengeleme sonucu kullanılmadan) bağımsız kapanma kontrolü; aktif
+      doğruluk sınıfının kapanma katsayısı ile karşılaştırılır: T = katsayı·√K (K: hat uzunluğu, km).</p>
+    <table id="devre-results-table">
+      <thead>
+        <tr><th>Devre / hat</th><th>Uzunluk K (km)</th><th>Kapanma hatası</th><th>Tolerans</th><th>Durum</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>GNSS ölçü doğruluğu uygunluğu</h3>
+    <div id="gnss-compliance"></div>
+  </section>
+
+  <section class="panel hidden" id="viz-section">
+    <h2>Görselleştirme</h2>
+
+    <h3>Ölçekli ağ krokisi</h3>
+    <p class="panel-desc">Noktalar arasındaki gerçek mesafeyle orantılı (ölçekli) plan görünüşü. Ölçü çizgisinin
+      rengi, o ölçünün dengeleme sonrası normalleştirilmiş kalanına göre uygun/uyarı/kritik olarak işaretlenir.
+      Ayrıntılar için nokta ve çizgiler üzerine gelin.</p>
+    <div id="network-sketch" class="viz-container"></div>
+
+    <h3>Yükseklik profili</h3>
+    <p class="panel-desc">Sabit noktalar kare, bilinmeyen (dengeli) noktalar %95 güven aralığı çubuğu ile daire
+      olarak gösterilir.</p>
+    <div id="height-profile" class="viz-container"></div>
   </section>
 </main>
 
@@ -127,6 +197,7 @@
 
 <script src="js/matrix.js"></script>
 <script src="js/adjustment.js"></script>
+<script src="js/viz.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

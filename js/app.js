@@ -2,10 +2,10 @@
 
 const state = {
   points: [
-    { name: "R1", type: "fixed", height: 250.0 },
-    { name: "R2", type: "fixed", height: 255.48 },
-    { name: "N1", type: "unknown", height: null },
-    { name: "N2", type: "unknown", height: null },
+    { name: "R1", type: "fixed", height: 250.0, y: 1000, x: 1000 },
+    { name: "R2", type: "fixed", height: 255.48, y: 4650, x: 1500 },
+    { name: "N1", type: "unknown", height: null, y: 2200, x: 1050 },
+    { name: "N2", type: "unknown", height: null, y: 3650, x: 1450 },
   ],
   leveling: [
     { from: "R1", to: "N1", dh: 3.215, dist: 1.2, sigma: null },
@@ -21,6 +21,19 @@ const state = {
     k: 0.003, // m / sqrt(km) - nivelman hassasiyet katsayısı
     sigmaGnss: 0.02, // m - GNSS'ten türetilen yükseklik için varsayılan standart sapma
   },
+  // Yönetmelik toleransı sınıfları — AŞAĞIDAKİ KATSAYILAR ÖRNEK/VARSAYILAN
+  // DEĞERLERDİR. Yürürlükteki Büyük Ölçekli Harita ve Harita Bilgileri Üretim
+  // Yönetmeliği (BÖHHBÜY) metninden güncel değerleri teyit ederek düzenleyin.
+  accuracyClasses: [
+    { name: "I. Derece (Hassas) Nivelman", closureCoeff: 3, gnssMaxSigmaMm: 10, pointMaxStdevMm: 5 },
+    { name: "II. Derece Nivelman", closureCoeff: 8, gnssMaxSigmaMm: 20, pointMaxStdevMm: 10 },
+    { name: "III. Derece (Teknik) Nivelman", closureCoeff: 24, gnssMaxSigmaMm: 30, pointMaxStdevMm: 20 },
+  ],
+  activeClassIndex: 1,
+  devreler: [
+    { name: "Devre-1 (kapalı: R1-N1-N2-R1)", path: "R1,N1,N2,R1" },
+    { name: "Hat-1 (mesnetli: R1→R2)", path: "R1,N1,N2,R2" },
+  ],
 };
 
 function fmt(v, d = 4) {
@@ -48,7 +61,41 @@ function renderPointsTable() {
         </select>
       </td>
       <td><input type="number" step="any" value="${p.height ?? ""}" data-idx="${i}" data-field="height" class="pt-input" ${p.type === "unknown" ? "placeholder='—' " : ""} /></td>
+      <td><input type="number" step="any" value="${p.y ?? ""}" placeholder="—" data-idx="${i}" data-field="y" class="pt-input" /></td>
+      <td><input type="number" step="any" value="${p.x ?? ""}" placeholder="—" data-idx="${i}" data-field="x" class="pt-input" /></td>
       <td><button class="danger" data-idx="${i}" data-action="remove-point">Sil</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderAccuracyClassesTable() {
+  const tbody = document.querySelector("#accuracy-table tbody");
+  tbody.innerHTML = "";
+  state.accuracyClasses.forEach((c, i) => {
+    const tr = document.createElement("tr");
+    tr.className = i === state.activeClassIndex ? "active-class-row" : "";
+    tr.innerHTML = `
+      <td><input type="radio" name="active-class" ${i === state.activeClassIndex ? "checked" : ""} data-idx="${i}" data-action="select-class" /></td>
+      <td><input type="text" value="${c.name}" data-idx="${i}" data-field="name" class="ac-input" /></td>
+      <td><input type="number" step="any" value="${c.closureCoeff}" data-idx="${i}" data-field="closureCoeff" class="ac-input" /></td>
+      <td><input type="number" step="any" value="${c.gnssMaxSigmaMm}" data-idx="${i}" data-field="gnssMaxSigmaMm" class="ac-input" /></td>
+      <td><input type="number" step="any" value="${c.pointMaxStdevMm}" data-idx="${i}" data-field="pointMaxStdevMm" class="ac-input" /></td>
+      <td><button class="danger" data-idx="${i}" data-action="remove-class">Sil</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderDevrelerTable() {
+  const tbody = document.querySelector("#devreler-table tbody");
+  tbody.innerHTML = "";
+  state.devreler.forEach((d, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input type="text" value="${d.name}" data-idx="${i}" data-field="name" class="dv-input" /></td>
+      <td><input type="text" value="${d.path}" placeholder="ör: R1,N1,N2,R1" data-idx="${i}" data-field="path" class="dv-input" /></td>
+      <td><button class="danger" data-idx="${i}" data-action="remove-devre">Sil</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -97,6 +144,8 @@ function renderAll() {
   renderLevelingTable();
   renderGnssTable();
   renderParams();
+  renderAccuracyClassesTable();
+  renderDevrelerTable();
 }
 
 function attachTableListeners() {
@@ -105,8 +154,8 @@ function attachTableListeners() {
     if (!t.dataset.field) return;
     const idx = Number(t.dataset.idx);
     const field = t.dataset.field;
-    if (field === "height") {
-      state.points[idx].height = t.value === "" ? null : Number(t.value);
+    if (field === "height" || field === "y" || field === "x") {
+      state.points[idx][field] = t.value === "" ? null : Number(t.value);
     } else if (field === "name") {
       // Tabloyu her tuş vuruşunda yeniden çizmek input'un odağını kaybettirir;
       // bu yüzden isim değişince hemen renderAll() çağrılmıyor (aşağıdaki
@@ -199,6 +248,53 @@ function attachTableListeners() {
     state.params.sigmaGnss = Number(e.target.value);
   });
 
+  document.querySelector("#accuracy-table tbody").addEventListener("input", (e) => {
+    const t = e.target;
+    if (!t.dataset.field) return;
+    const idx = Number(t.dataset.idx);
+    const field = t.dataset.field;
+    state.accuracyClasses[idx][field] = field === "name" ? t.value : Number(t.value);
+  });
+
+  document.querySelector("#accuracy-table tbody").addEventListener("click", (e) => {
+    const t = e.target;
+    if (t.dataset.action === "select-class") {
+      state.activeClassIndex = Number(t.dataset.idx);
+      renderAccuracyClassesTable();
+    } else if (t.dataset.action === "remove-class") {
+      const idx = Number(t.dataset.idx);
+      state.accuracyClasses.splice(idx, 1);
+      if (state.activeClassIndex >= state.accuracyClasses.length) {
+        state.activeClassIndex = Math.max(0, state.accuracyClasses.length - 1);
+      }
+      renderAccuracyClassesTable();
+    }
+  });
+
+  document.getElementById("add-class").addEventListener("click", () => {
+    state.accuracyClasses.push({ name: "Yeni sınıf", closureCoeff: 12, gnssMaxSigmaMm: 25, pointMaxStdevMm: 15 });
+    renderAccuracyClassesTable();
+  });
+
+  document.querySelector("#devreler-table tbody").addEventListener("input", (e) => {
+    const t = e.target;
+    if (!t.dataset.field) return;
+    const idx = Number(t.dataset.idx);
+    state.devreler[idx][t.dataset.field] = t.value;
+  });
+
+  document.querySelector("#devreler-table tbody").addEventListener("click", (e) => {
+    if (e.target.dataset.action === "remove-devre") {
+      state.devreler.splice(Number(e.target.dataset.idx), 1);
+      renderDevrelerTable();
+    }
+  });
+
+  document.getElementById("add-devre").addEventListener("click", () => {
+    state.devreler.push({ name: `Devre-${state.devreler.length + 1}`, path: "" });
+    renderDevrelerTable();
+  });
+
   document.getElementById("calculate").addEventListener("click", calculate);
 }
 
@@ -214,26 +310,35 @@ function calculate() {
     errorBox.textContent = "Hata: " + err.message;
     errorBox.classList.remove("hidden");
     document.getElementById("results-section").classList.add("hidden");
+    document.getElementById("viz-section").classList.add("hidden");
   }
 }
 
 function renderResults(result) {
   document.getElementById("results-section").classList.remove("hidden");
+  document.getElementById("viz-section").classList.remove("hidden");
 
   document.getElementById("stat-nobs").textContent = result.obsCount;
   document.getElementById("stat-unknowns").textContent = result.unknownCount;
   document.getElementById("stat-redundancy").textContent = result.redundancy;
   document.getElementById("stat-sigma0").textContent = fmt(result.sigma0, 5) + " m";
 
+  const activeClass = state.accuracyClasses[state.activeClassIndex];
+
   const heightsBody = document.querySelector("#heights-table tbody");
   heightsBody.innerHTML = "";
   result.results.forEach((r) => {
+    const stdevMm = r.stdev * 1000;
+    const cls = classifyByStdev(stdevMm, state.accuracyClasses, "pointMaxStdevMm");
+    const meetsActive = activeClass && stdevMm <= activeClass.pointMaxStdevMm;
     const tr = document.createElement("tr");
+    if (activeClass) tr.className = meetsActive ? "" : "flag-warn";
     tr.innerHTML = `
       <td>${r.name}</td>
       <td>${fmt(r.H, 4)}</td>
-      <td>±${fmt(r.stdev, 4)}</td>
+      <td>±${fmt(r.stdev, 4)} (${fmt(stdevMm, 1)} mm)</td>
       <td>[${fmt(r.ciLow, 4)}, ${fmt(r.ciHigh, 4)}]</td>
+      <td>${cls}</td>
     `;
     heightsBody.appendChild(tr);
   });
@@ -254,6 +359,54 @@ function renderResults(result) {
     `;
     resBody.appendChild(tr);
   });
+
+  renderDevreResults(activeClass);
+  renderGnssComplianceNote(activeClass);
+
+  const residualByLabel = {};
+  result.residualRows.forEach((r) => (residualByLabel[r.label] = r));
+  renderNetworkSketch(document.getElementById("network-sketch"), state.points, state.leveling, residualByLabel);
+  renderHeightProfile(document.getElementById("height-profile"), state.points, result.results);
+}
+
+function renderDevreResults(activeClass) {
+  const body = document.querySelector("#devre-results-table tbody");
+  body.innerHTML = "";
+  state.devreler.forEach((d) => {
+    const pathNames = (d.path || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const res = evaluateRoute(d.name, pathNames, state.points, state.leveling);
+    const tr = document.createElement("tr");
+    if (res.error) {
+      tr.innerHTML = `<td>${res.name}</td><td colspan="5" class="flag-bad">${res.error}</td>`;
+      body.appendChild(tr);
+      return;
+    }
+    const tol = activeClass ? toleranceMm(activeClass.closureCoeff, res.lengthKm) : null;
+    const within = tol !== null ? Math.abs(res.misclosureMm) <= tol : null;
+    if (within === false) tr.className = "flag-bad";
+    tr.innerHTML = `
+      <td>${res.name} <span class="viz-legend-item" style="font-weight:400;color:var(--muted)">(${res.kind})</span></td>
+      <td>${fmt(res.lengthKm, 3)}</td>
+      <td>${fmt(res.misclosureMm, 2)} mm</td>
+      <td>${tol !== null ? "±" + fmt(tol, 2) + " mm" : "—"}</td>
+      <td>${within === null ? "—" : within ? "Uygun" : "Sınır Aşıldı"}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderGnssComplianceNote(activeClass) {
+  const box = document.getElementById("gnss-compliance");
+  if (!activeClass) {
+    box.innerHTML = "";
+    return;
+  }
+  const rows = state.gnss.map((o) => {
+    const sigmaMm = (o.sigma && o.sigma > 0 ? o.sigma : state.params.sigmaGnss) * 1000;
+    const ok = sigmaMm <= activeClass.gnssMaxSigmaMm;
+    return `<li class="${ok ? "" : "flag-bad"}">${o.point}: σ = ${fmt(sigmaMm, 1)} mm ${ok ? "(uygun)" : `(sınıf sınırı ${activeClass.gnssMaxSigmaMm} mm aşıldı)`}</li>`;
+  });
+  box.innerHTML = `<p class="panel-desc">Aktif sınıf: <strong>${activeClass.name}</strong> — GNSS yükseklik σ sınırı: ${activeClass.gnssMaxSigmaMm} mm</p><ul>${rows.join("")}</ul>`;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
