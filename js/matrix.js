@@ -4,15 +4,6 @@ function matZeros(rows, cols) {
   return Array.from({ length: rows }, () => new Array(cols).fill(0));
 }
 
-function matTranspose(A) {
-  const rows = A.length, cols = A[0].length;
-  const T = matZeros(cols, rows);
-  for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < cols; j++) T[j][i] = A[i][j];
-  }
-  return T;
-}
-
 function matMultiply(A, B) {
   const rA = A.length, cA = A[0].length, cB = B[0].length;
   const C = matZeros(rA, cB);

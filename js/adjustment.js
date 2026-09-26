@@ -24,13 +24,6 @@ function buildPointIndex(points) {
   return { unknownIndex, u: idx };
 }
 
-function getFixedHeight(points, name) {
-  const p = points.find((pt) => pt.name === name);
-  if (!p) throw new Error(`Nokta bulunamadı: ${name}`);
-  if (p.type !== "fixed") return null;
-  return p.height;
-}
-
 function runAdjustment(points, levelingObs, gnssObs, params) {
   const { unknownIndex, u } = buildPointIndex(points);
   if (u === 0) throw new Error("En az bir bilinmeyen (sabit olmayan) nokta tanımlanmalı.");
@@ -46,7 +39,17 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
     const toPt = pointByName[obs.to];
     if (!fromPt || !toPt) throw new Error(`Nivelman ölçüsü için nokta tanımsız: ${obs.from} -> ${obs.to}`);
 
-    const sigma = obs.sigma && obs.sigma > 0 ? obs.sigma : params.k * Math.sqrt(Math.max(obs.dist, 1e-6));
+    let sigma;
+    if (obs.sigma && obs.sigma > 0) {
+      sigma = obs.sigma;
+    } else {
+      if (obs.dist === null || obs.dist === undefined || !Number.isFinite(obs.dist) || obs.dist <= 0) {
+        throw new Error(
+          `Nivelman ölçüsü için geçerli bir mesafe (S) veya elle σ girilmeli: ${obs.from} → ${obs.to}`
+        );
+      }
+      sigma = params.k * Math.sqrt(obs.dist);
+    }
     const w = 1 / (sigma * sigma);
 
     const row = new Array(u).fill(0);

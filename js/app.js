@@ -107,11 +107,31 @@ function attachTableListeners() {
     const field = t.dataset.field;
     if (field === "height") {
       state.points[idx].height = t.value === "" ? null : Number(t.value);
+    } else if (field === "name") {
+      // Tabloyu her tuş vuruşunda yeniden çizmek input'un odağını kaybettirir;
+      // bu yüzden isim değişince hemen renderAll() çağrılmıyor (aşağıdaki
+      // "focusout" dinleyicisi bağımlı seçim kutularını odak kaybolduğunda günceller).
+      const oldName = state.points[idx].name;
+      const newName = t.value;
+      state.points[idx].name = newName;
+      if (oldName !== newName) {
+        state.leveling.forEach((o) => {
+          if (o.from === oldName) o.from = newName;
+          if (o.to === oldName) o.to = newName;
+        });
+        state.gnss.forEach((o) => {
+          if (o.point === oldName) o.point = newName;
+        });
+      }
     } else {
       state.points[idx][field] = t.value;
       if (field === "type" && t.value === "unknown") state.points[idx].height = null;
       renderAll();
     }
+  });
+
+  document.querySelector("#points-table tbody").addEventListener("focusout", (e) => {
+    if (e.target.dataset.field === "name") renderAll();
   });
 
   document.querySelector("#points-table tbody").addEventListener("click", (e) => {
