@@ -4,7 +4,6 @@ const VIZ_COLORS = {
   fixed: "#2a78d6", // kategorik slot 1 (mavi) — sabit nokta
   unknown: "#eb6834", // kategorik slot 2 (turuncu) — bilinmeyen nokta
   good: "#0ca30c",
-  warning: "#fab219",
   serious: "#ec835a",
   critical: "#d03b3b",
   ink: "#0b0b0b",
@@ -153,8 +152,8 @@ function renderNetworkSketch(container, points, levelingObs, residualByLabel) {
     `);
   });
 
-  // Ölçek çubuğu
-  const targetBarMeters = spanY / metersPerPx > 0 ? (width - 2 * pad) * 0.18 * metersPerPx : 100;
+  // Ölçek çubuğu: çizim genişliğinin ~%18'ine karşılık gelen "güzel" bir yuvarlak uzunluk seç
+  const targetBarMeters = (width - 2 * pad) * 0.18 * metersPerPx;
   const barMeters = niceScaleLength(targetBarMeters);
   const barPx = barMeters / metersPerPx;
   const barX = pad;

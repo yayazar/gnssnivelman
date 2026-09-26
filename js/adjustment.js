@@ -208,10 +208,15 @@ function evaluateRoute(routeName, pathNames, points, levelingObs) {
     }
     const obs = fwd || bwd;
     const dh = fwd ? obs.dh : -obs.dh;
-    const dist = obs.dist || 0;
+    if (!Number.isFinite(obs.dist) || obs.dist <= 0) {
+      return {
+        name: routeName,
+        error: `Hat uzunluğu (K) hesaplanamaz: ${a} ↔ ${b} ölçüsünde geçerli bir mesafe girilmemiş (yalnızca σ girilmiş olabilir).`,
+      };
+    }
     sumDh += dh;
-    lengthKm += dist;
-    segments.push({ from: a, to: b, dh, dist });
+    lengthKm += obs.dist;
+    segments.push({ from: a, to: b, dh, dist: obs.dist });
   }
 
   const startPt = pointByName[pathNames[0]];

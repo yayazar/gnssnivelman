@@ -43,7 +43,10 @@ function fmt(v, d = 4) {
 
 function pointOptions(selected) {
   return state.points
-    .map((p) => `<option value="${p.name}" ${p.name === selected ? "selected" : ""}>${p.name}</option>`)
+    .map((p) => {
+      const name = vizEscape(p.name);
+      return `<option value="${name}" ${p.name === selected ? "selected" : ""}>${name}</option>`;
+    })
     .join("");
 }
 
@@ -53,7 +56,7 @@ function renderPointsTable() {
   state.points.forEach((p, i) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><input type="text" value="${p.name}" data-idx="${i}" data-field="name" class="pt-input" /></td>
+      <td><input type="text" value="${vizEscape(p.name)}" data-idx="${i}" data-field="name" class="pt-input" /></td>
       <td>
         <select data-idx="${i}" data-field="type" class="pt-input">
           <option value="fixed" ${p.type === "fixed" ? "selected" : ""}>Sabit (mesnet)</option>
@@ -77,7 +80,7 @@ function renderAccuracyClassesTable() {
     tr.className = i === state.activeClassIndex ? "active-class-row" : "";
     tr.innerHTML = `
       <td><input type="radio" name="active-class" ${i === state.activeClassIndex ? "checked" : ""} data-idx="${i}" data-action="select-class" /></td>
-      <td><input type="text" value="${c.name}" data-idx="${i}" data-field="name" class="ac-input" /></td>
+      <td><input type="text" value="${vizEscape(c.name)}" data-idx="${i}" data-field="name" class="ac-input" /></td>
       <td><input type="number" step="any" value="${c.closureCoeff}" data-idx="${i}" data-field="closureCoeff" class="ac-input" /></td>
       <td><input type="number" step="any" value="${c.gnssMaxSigmaMm}" data-idx="${i}" data-field="gnssMaxSigmaMm" class="ac-input" /></td>
       <td><input type="number" step="any" value="${c.pointMaxStdevMm}" data-idx="${i}" data-field="pointMaxStdevMm" class="ac-input" /></td>
@@ -93,8 +96,8 @@ function renderDevrelerTable() {
   state.devreler.forEach((d, i) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><input type="text" value="${d.name}" data-idx="${i}" data-field="name" class="dv-input" /></td>
-      <td><input type="text" value="${d.path}" placeholder="ör: R1,N1,N2,R1" data-idx="${i}" data-field="path" class="dv-input" /></td>
+      <td><input type="text" value="${vizEscape(d.name)}" data-idx="${i}" data-field="name" class="dv-input" /></td>
+      <td><input type="text" value="${vizEscape(d.path)}" placeholder="ör: R1,N1,N2,R1" data-idx="${i}" data-field="path" class="dv-input" /></td>
       <td><button class="danger" data-idx="${i}" data-action="remove-devre">Sil</button></td>
     `;
     tbody.appendChild(tr);
@@ -334,11 +337,11 @@ function renderResults(result) {
     const tr = document.createElement("tr");
     if (activeClass) tr.className = meetsActive ? "" : "flag-warn";
     tr.innerHTML = `
-      <td>${r.name}</td>
+      <td>${vizEscape(r.name)}</td>
       <td>${fmt(r.H, 4)}</td>
       <td>±${fmt(r.stdev, 4)} (${fmt(stdevMm, 1)} mm)</td>
       <td>[${fmt(r.ciLow, 4)}, ${fmt(r.ciHigh, 4)}]</td>
-      <td>${cls}</td>
+      <td>${vizEscape(cls)}</td>
     `;
     heightsBody.appendChild(tr);
   });
@@ -350,7 +353,7 @@ function renderResults(result) {
     const tr = document.createElement("tr");
     tr.className = flag;
     tr.innerHTML = `
-      <td>${r.label}</td>
+      <td>${vizEscape(r.label)}</td>
       <td>${r.kind}</td>
       <td>${fmt(r.raw, 4)}</td>
       <td>±${fmt(r.sigma, 4)}</td>
@@ -363,9 +366,19 @@ function renderResults(result) {
   renderDevreResults(activeClass);
   renderGnssComplianceNote(activeClass);
 
+  // Kroki tooltip'lerinde dengeli yükseklikleri gösterebilmek için, state'i
+  // değiştirmeden bilinmeyen noktaların H'sini dengeleme sonucuyla birleştir.
+  const adjustedHeightByName = {};
+  result.results.forEach((r) => (adjustedHeightByName[r.name] = r.H));
+  const pointsForViz = state.points.map((p) =>
+    p.type === "unknown" && p.name in adjustedHeightByName
+      ? { ...p, height: adjustedHeightByName[p.name] }
+      : p
+  );
+
   const residualByLabel = {};
   result.residualRows.forEach((r) => (residualByLabel[r.label] = r));
-  renderNetworkSketch(document.getElementById("network-sketch"), state.points, state.leveling, residualByLabel);
+  renderNetworkSketch(document.getElementById("network-sketch"), pointsForViz, state.leveling, residualByLabel);
   renderHeightProfile(document.getElementById("height-profile"), state.points, result.results);
 }
 
@@ -377,7 +390,7 @@ function renderDevreResults(activeClass) {
     const res = evaluateRoute(d.name, pathNames, state.points, state.leveling);
     const tr = document.createElement("tr");
     if (res.error) {
-      tr.innerHTML = `<td>${res.name}</td><td colspan="5" class="flag-bad">${res.error}</td>`;
+      tr.innerHTML = `<td>${vizEscape(res.name)}</td><td colspan="5" class="flag-bad">${vizEscape(res.error)}</td>`;
       body.appendChild(tr);
       return;
     }
@@ -385,7 +398,7 @@ function renderDevreResults(activeClass) {
     const within = tol !== null ? Math.abs(res.misclosureMm) <= tol : null;
     if (within === false) tr.className = "flag-bad";
     tr.innerHTML = `
-      <td>${res.name} <span class="viz-legend-item" style="font-weight:400;color:var(--muted)">(${res.kind})</span></td>
+      <td>${vizEscape(res.name)} <span class="viz-legend-item" style="font-weight:400;color:var(--muted)">(${vizEscape(res.kind)})</span></td>
       <td>${fmt(res.lengthKm, 3)}</td>
       <td>${fmt(res.misclosureMm, 2)} mm</td>
       <td>${tol !== null ? "±" + fmt(tol, 2) + " mm" : "—"}</td>
@@ -404,9 +417,9 @@ function renderGnssComplianceNote(activeClass) {
   const rows = state.gnss.map((o) => {
     const sigmaMm = (o.sigma && o.sigma > 0 ? o.sigma : state.params.sigmaGnss) * 1000;
     const ok = sigmaMm <= activeClass.gnssMaxSigmaMm;
-    return `<li class="${ok ? "" : "flag-bad"}">${o.point}: σ = ${fmt(sigmaMm, 1)} mm ${ok ? "(uygun)" : `(sınıf sınırı ${activeClass.gnssMaxSigmaMm} mm aşıldı)`}</li>`;
+    return `<li class="${ok ? "" : "flag-bad"}">${vizEscape(o.point)}: σ = ${fmt(sigmaMm, 1)} mm ${ok ? "(uygun)" : `(sınıf sınırı ${activeClass.gnssMaxSigmaMm} mm aşıldı)`}</li>`;
   });
-  box.innerHTML = `<p class="panel-desc">Aktif sınıf: <strong>${activeClass.name}</strong> — GNSS yükseklik σ sınırı: ${activeClass.gnssMaxSigmaMm} mm</p><ul>${rows.join("")}</ul>`;
+  box.innerHTML = `<p class="panel-desc">Aktif sınıf: <strong>${vizEscape(activeClass.name)}</strong> — GNSS yükseklik σ sınırı: ${activeClass.gnssMaxSigmaMm} mm</p><ul>${rows.join("")}</ul>`;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
