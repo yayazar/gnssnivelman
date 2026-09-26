@@ -25,16 +25,19 @@ statik dosya sunucusu ile servis edebilirsiniz, örn. `python3 -m http.server`).
    panelinde Δh'nin **varsayılan kaynağıdır**. Y/X yalnızca krokinin
    çizimi içindir.
 2. **Nivelman ölçüleri**: Kalkış/varış noktalarını seçin ve mesafeyi (km)
-   girin. **Δh alanını boş bırakırsanız**, Noktalar tablosundaki güncel Z
-   farkından (`Z_varış − Z_kalkış`) canlı olarak hesaplanır ve placeholder'da
-   "oto: …" şeklinde görünür — bir Z değişince bu önizleme anında güncellenir.
-   İki sabit nokta arasında ayrıca ölçülmüş **bağımsız bir kontrol hattınız**
-   varsa, Δh'yi o satıra elle girerek otomatik hesaplamanın üzerine
-   yazabilirsiniz (override); bu, devre kapanma kontrolü için gereklidir
-   (aşağıya bakın). Standart sapma girilmezse otomatik olarak `σ = k·√S`
-   formülüyle hesaplanır. Hesapla'dan sonra bu tablonun "Düzeltme (v)" ve
-   "Dengeli Δh" sütunları, dengeleme sonucuyla doldurulur; "Mesafe" butonu
-   Y/X koordinatlarından düz hat mesafesi önerir.
+   girin. **İki BİLİNMEYEN nokta arasındaki** bir ölçüde Δh alanını boş
+   bırakabilirsiniz: Noktalar tablosundaki güncel Z farkından
+   (`Z_varış − Z_kalkış`) canlı olarak hesaplanır ve placeholder'da "oto: …"
+   şeklinde görünür — bir Z değişince bu önizleme anında güncellenir. **Bir
+   sabit (mesnet) noktaya bağlanan ölçülerde Δh mutlaka elle girilmelidir**;
+   uygulama bu durumda otomatik hesaplama yapmaz (placeholder "elle girin
+   (sabit nokta)" gösterir) — nedeni aşağıdaki "Yöntem" bölümünde açıklanıyor.
+   Standart sapma girilmezse otomatik olarak `σ = k·√S` formülüyle
+   hesaplanır. Girdiğiniz veriler dışında dengeleme tamamen otomatiktir:
+   herhangi bir değeri değiştirdiğinizde sonuçlar (bu tablodaki "Düzeltme (v)"
+   ve "Dengeli Δh" sütunları dahil) kısa bir gecikmeyle kendiliğinden yeniden
+   hesaplanır — elle bir "Hesapla" düğmesine basmanız gerekmez. "Mesafe"
+   butonu Y/X koordinatlarından düz hat mesafesi önerir.
 3. **GNSS ölçüleri**: Nokta, elipsoidal yükseklik (h) ve jeoit ondülasyonu
    (N) girin; ortometrik yükseklik `H = h − N` olarak hesaplanıp bir "sözde
    ölçü" olarak dengelemeye katılır.
@@ -51,7 +54,10 @@ statik dosya sunucusu ile servis edebilirsiniz, örn. `python3 -m http.server`).
    içermelidir (bkz. örnek veri: `RP1↔RP2`, `RP2↔RP3` kontrol hatları).
 6. **Parametreler**: Nivelman hassasiyet katsayısı (k) ve varsayılan GNSS
    standart sapmasını ayarlayın.
-7. **Dengelemeyi Hesapla** butonuna basın.
+
+Ayrı bir "Hesapla" adımı yoktur — dengeleme, sayfa ilk açıldığında ve her
+değişiklikte otomatik olarak çalışır (bkz. sayfadaki "⟳/✓ Dengeleme otomatik
+olarak hesaplanır/güncellendi" göstergesi).
 
 Uygulama açılışta örnek bir test ağı ile önceden doldurulmuştur; satırları
 düzenleyebilir, silebilir veya yeni satır ekleyebilirsiniz. Noktalara isteğe
@@ -69,9 +75,19 @@ prensibine göre yapılır.
 
 - Nivelman ölçüsü: `H_varış − H_kalkış = Δh_ölçü`, ağırlık `w = 1/σ²`,
   `σ = k·√S` (S kilometre cinsinden mesafe). `Δh_ölçü`, elle girilmemişse
-  (override yoksa) Noktalar tablosundaki `Z_varış − Z_kalkış` farkından
-  hesaplanır; elle girilmişse o değer kullanılır.
+  Noktalar tablosundaki `Z_varış − Z_kalkış` farkından hesaplanır; elle
+  girilmişse o değer kullanılır.
 - GNSS sözde ölçüsü: `H_nokta = h − N`, ağırlık `w = 1/σ_GNSS²`.
+
+**Neden Z'den otomatik türetme yalnızca iki bilinmeyen nokta arasında
+geçerlidir:** Bir ölçünün bir ucu sabitse ve Δh, o sabit noktanın kendi
+Z'sinden türetilirse (`Δh = Z_bilinmeyen − Z_sabit`), denklem
+`H_bilinmeyen = Z_sabit + (Z_bilinmeyen − Z_sabit) = Z_bilinmeyen` şeklinde
+cebirsel olarak sadeleşir — yani **sabit noktanın gerçek değeri sonucu hiç
+etkilemez** (totoloji); sabit nokta sanki dengelemede yokmuş gibi davranır.
+Bu yüzden bir sabit noktaya bağlanan her ölçüde Δh mutlaka elle (gerçek bir
+ölçüm olarak) girilmelidir; otomatik türetme yalnızca iki bilinmeyen nokta
+arasında (bu totoloji oluşmadığından) uygulanır.
 
 Tüm ölçü denklemleri `A x = l` biçiminde birleştirilir ve normal denklemler
 `N = AᵀPA`, `n = AᵀPl` kurularak `x̂ = N⁻¹n` çözülür (P: köşegen ağırlık

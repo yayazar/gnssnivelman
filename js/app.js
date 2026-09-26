@@ -31,23 +31,29 @@ function getSampleState() {
     { name: "N11", type: "unknown", height: 415.18, y: 550150, x: 4473900 },
     { name: "N12", type: "unknown", height: 462.53, y: 549950, x: 4472750 },
   ],
-  // Ardışık noktalar arasındaki 14 satırda dh=null: Δh, Noktalar tablosundaki
-  // Z farkından otomatik hesaplanır. Son iki satır (RP1↔RP2, RP2↔RP3), iki
-  // sabit nokta arasında AYRICA ölçülmüş bağımsız "kontrol hattı" ölçüleridir
-  // — bu yüzden dh elle (override) girilir; dengelemeye katılmazlar (iki ucu
-  // da sabit) ama devre kapanma kontrolünde bağımsız artıklık sağlarlar.
+  // dh=null olan satırlarda Δh, Noktalar tablosundaki Z farkından otomatik
+  // hesaplanır — YALNIZCA HER İKİ UCU DA BİLİNMEYEN olan ölçülerde (N1-N2,
+  // N2-N3, ... gibi ara kenarlar). Bir sabit noktaya bağlanan kenarlarda
+  // (RP1→N1, N4→RP2, RP2→N5, N8→RP3, RP3→N9) Δh KASITLI OLARAK elle
+  // girilmiştir: bu kenarlarda Z'den otomatik türetme, sabit noktanın kendi
+  // değeriyle cebirsel olarak sadeleşip totolojiye ("H_bilinmeyen = kendi
+  // girilen Z'si") yol açar ve sabit noktanın gerçek değerini dengelemeden
+  // tamamen dışlardı — bkz. app.js `canAutoDeriveDh`. Son iki satır
+  // (RP1↔RP2, RP2↔RP3) ise iki sabit nokta arasında AYRICA ölçülmüş bağımsız
+  // "kontrol hattı" ölçüleridir; dengelemeye katılmazlar (iki ucu da sabit)
+  // ama devre kapanma kontrolünde bağımsız artıklık sağlarlar.
   leveling: [
-    { from: "RP1", to: "N1", dh: null, dist: 0.84, sigma: null },
+    { from: "RP1", to: "N1", dh: 5.395, dist: 0.84, sigma: null },
     { from: "N1", to: "N2", dh: null, dist: 0.96, sigma: null },
     { from: "N2", to: "N3", dh: null, dist: 1.05, sigma: null },
     { from: "N3", to: "N4", dh: null, dist: 1.06, sigma: null },
-    { from: "N4", to: "RP2", dh: null, dist: 1.11, sigma: null },
-    { from: "RP2", to: "N5", dh: null, dist: 1.24, sigma: null },
+    { from: "N4", to: "RP2", dh: 19.247, dist: 1.11, sigma: null },
+    { from: "RP2", to: "N5", dh: 31.395, dist: 1.24, sigma: null },
     { from: "N5", to: "N6", dh: null, dist: 1.14, sigma: null },
     { from: "N6", to: "N7", dh: null, dist: 1.18, sigma: null },
     { from: "N7", to: "N8", dh: null, dist: 1.17, sigma: null },
-    { from: "N8", to: "RP3", dh: null, dist: 1.18, sigma: null },
-    { from: "RP3", to: "N9", dh: null, dist: 1.15, sigma: null },
+    { from: "N8", to: "RP3", dh: 49.52, dist: 1.18, sigma: null },
+    { from: "RP3", to: "N9", dh: 47.44, dist: 1.15, sigma: null },
     { from: "N9", to: "N10", dh: null, dist: 1.17, sigma: null },
     { from: "N10", to: "N11", dh: null, dist: 1.15, sigma: null },
     { from: "N11", to: "N12", dh: null, dist: 1.17, sigma: null },
@@ -112,16 +118,33 @@ function computeDhFromZ(fromName, toName) {
   return Number.isFinite(a) && Number.isFinite(b) ? b - a : null;
 }
 
+function isFixedPoint(name) {
+  const p = state.points.find((pt) => pt.name === name);
+  return !!p && p.type === "fixed";
+}
+
+// Bir ölçünün Δh'sini Z'den otomatik türetmek YALNIZCA iki bilinmeyen nokta
+// arasında matematiksel olarak anlamlıdır. Bir uç sabitse, "Δh = Z(bilinmeyen)
+// − Z(sabit)" ifadesi dengeleme denklemine girdiğinde sabit noktanın kendi
+// değeriyle tam olarak sadeleşir (H_bilinmeyen = Z(sabit) + (Z(bilinmeyen) −
+// Z(sabit)) = Z(bilinmeyen)) — yani sabit noktanın gerçek değeri sonucu HİÇ
+// etkilemez (totoloji). Bu yüzden sabit nokta içeren ölçülerde Δh mutlaka
+// elle (gerçek bir ölçüm olarak) girilmelidir; otomatik hesaplama yalnızca
+// iki ara (bilinmeyen) nokta arasında uygulanır.
+function canAutoDeriveDh(fromName, toName) {
+  return !isFixedPoint(fromName) && !isFixedPoint(toName);
+}
+
 // Dengeleme ve devre kapanma hesaplarına verilecek nihai ölçü listesi: bir
-// satırda elle Δh girilmişse (override — ör. bağımsız bir kontrol hattı) o
-// değer kullanılır; girilmemişse (null) Δh, Noktalar tablosundaki güncel Z
-// farkından canlı olarak hesaplanır. Böylece hesap mantığı hiçbir zaman
-// "unutulmuş"/bayat bir Δh alanına değil, her zaman güncel kotlara dayanır.
+// satırda elle Δh girilmişse o değer kullanılır; girilmemişse ve her iki uç
+// da bilinmeyense Δh, Noktalar tablosundaki güncel Z farkından canlı olarak
+// hesaplanır. Bir uç sabitse ve Δh girilmemişse dh=null döner — bu, aşağıda
+// runAdjustment'ın fırlatacağı açık "Δh elle girilmeli" hatasıyla yakalanır.
 function resolvedLevelingObs() {
   return state.leveling.map((o) => ({
     from: o.from,
     to: o.to,
-    dh: o.dh != null ? o.dh : computeDhFromZ(o.from, o.to),
+    dh: o.dh != null ? o.dh : canAutoDeriveDh(o.from, o.to) ? computeDhFromZ(o.from, o.to) : null,
     dist: o.dist,
     sigma: o.sigma,
   }));
@@ -130,6 +153,22 @@ function resolvedLevelingObs() {
 function invalidateResults() {
   lastResult = null;
   updateLevelingComputedDisplays();
+}
+
+// Girilen veri dışında hesap tamamen otomatiktir: herhangi bir nokta, ölçü,
+// parametre, sınıf ya da devre değiştiğinde dengeleme kısa bir gecikmeyle
+// (art arda tuş vuruşlarını tek seferde işlemek için) kendiliğinden yeniden
+// çalışır — elle "Hesapla" tetiklemeye gerek yoktur.
+let autoCalcTimer = null;
+function scheduleAutoCalculate(delay = 200) {
+  invalidateResults();
+  const statusEl = document.getElementById("auto-calc-status");
+  if (statusEl) statusEl.textContent = "⟳ Hesaplanıyor…";
+  if (autoCalcTimer) clearTimeout(autoCalcTimer);
+  autoCalcTimer = setTimeout(() => {
+    calculate();
+    if (statusEl) statusEl.textContent = "✓ Dengeleme otomatik olarak güncellendi";
+  }, delay);
 }
 
 function pointOptions(selected) {
@@ -226,8 +265,12 @@ function updateLevelingComputedDisplays() {
     if (!o) return;
     const dhInput = tr.querySelector('input[data-field="dh"]');
     if (dhInput) {
-      const live = computeDhFromZ(o.from, o.to);
-      dhInput.placeholder = live !== null ? `oto: ${fmt(live, 4)}` : "—";
+      if (!canAutoDeriveDh(o.from, o.to)) {
+        dhInput.placeholder = "elle girin (sabit nokta)";
+      } else {
+        const live = computeDhFromZ(o.from, o.to);
+        dhInput.placeholder = live !== null ? `oto: ${fmt(live, 4)}` : "—";
+      }
     }
     const label = `${o.from} → ${o.to}`;
     const res = lastResult ? lastResult.residualRows.find((r) => r.kind === "Nivelman" && r.label === label) : null;
@@ -249,8 +292,8 @@ function autofillDistRow(idx) {
   const b = state.points.find((p) => p.name === o.to);
   if (a && b && Number.isFinite(a.y) && Number.isFinite(a.x) && Number.isFinite(b.y) && Number.isFinite(b.x)) {
     o.dist = Math.round((Math.sqrt((b.y - a.y) ** 2 + (b.x - a.x) ** 2) / 1000) * 1000) / 1000;
-    invalidateResults();
     renderLevelingTable();
+    scheduleAutoCalculate();
   }
 }
 
@@ -292,7 +335,7 @@ function attachTableListeners() {
     const field = t.dataset.field;
     if (field === "height" || field === "y" || field === "x") {
       state.points[idx][field] = t.value === "" ? null : Number(t.value);
-      invalidateResults(); // Δh önizlemeleri ve dengeleme sonuçları Z'ye bağlı
+      scheduleAutoCalculate(); // Δh önizlemeleri ve dengeleme sonuçları Z'ye bağlı
     } else if (field === "name") {
       // Tabloyu her tuş vuruşunda yeniden çizmek input'un odağını kaybettirir;
       // bu yüzden isim değişince hemen renderAll() çağrılmıyor (aşağıdaki
@@ -308,12 +351,12 @@ function attachTableListeners() {
         state.gnss.forEach((o) => {
           if (o.point === oldName) o.point = newName;
         });
-        invalidateResults();
+        scheduleAutoCalculate();
       }
     } else {
       state.points[idx][field] = t.value;
-      lastResult = null;
       renderAll();
+      scheduleAutoCalculate();
     }
   });
 
@@ -324,8 +367,8 @@ function attachTableListeners() {
   document.querySelector("#points-table tbody").addEventListener("click", (e) => {
     if (e.target.dataset.action === "remove-point") {
       state.points.splice(Number(e.target.dataset.idx), 1);
-      lastResult = null;
       renderAll();
+      scheduleAutoCalculate();
     }
   });
 
@@ -336,15 +379,15 @@ function attachTableListeners() {
     const field = t.dataset.field;
     const val = ["dh", "dist", "sigma"].includes(field) ? (t.value === "" ? null : Number(t.value)) : t.value;
     state.leveling[idx][field] = val;
-    invalidateResults();
+    scheduleAutoCalculate();
   });
 
   document.querySelector("#leveling-table tbody").addEventListener("click", (e) => {
     const idx = Number(e.target.dataset.idx);
     if (e.target.dataset.action === "remove-leveling") {
       state.leveling.splice(idx, 1);
-      lastResult = null;
       renderAll();
+      scheduleAutoCalculate();
     } else if (e.target.dataset.action === "autofill-dist") {
       autofillDistRow(idx);
     }
@@ -357,46 +400,46 @@ function attachTableListeners() {
     const field = t.dataset.field;
     const val = ["h", "N", "sigma"].includes(field) ? (t.value === "" ? null : Number(t.value)) : t.value;
     state.gnss[idx][field] = val;
-    invalidateResults();
+    scheduleAutoCalculate();
   });
 
   document.querySelector("#gnss-table tbody").addEventListener("click", (e) => {
     if (e.target.dataset.action === "remove-gnss") {
       state.gnss.splice(Number(e.target.dataset.idx), 1);
-      lastResult = null;
       renderAll();
+      scheduleAutoCalculate();
     }
   });
 
   document.getElementById("add-point").addEventListener("click", () => {
     const n = state.points.length + 1;
     state.points.push({ name: `P${n}`, type: "unknown", height: null });
-    lastResult = null;
     renderAll();
+    scheduleAutoCalculate();
   });
 
   document.getElementById("add-leveling").addEventListener("click", () => {
     const p1 = state.points[0]?.name ?? "";
     const p2 = state.points[1]?.name ?? "";
     state.leveling.push({ from: p1, to: p2, dh: null, dist: 1, sigma: null });
-    lastResult = null;
     renderAll();
+    scheduleAutoCalculate();
   });
 
   document.getElementById("add-gnss").addEventListener("click", () => {
     const p1 = state.points[0]?.name ?? "";
     state.gnss.push({ point: p1, h: 0, N: 0, sigma: null });
-    lastResult = null;
     renderAll();
+    scheduleAutoCalculate();
   });
 
   document.getElementById("param-k").addEventListener("input", (e) => {
     state.params.k = Number(e.target.value);
-    invalidateResults();
+    scheduleAutoCalculate();
   });
   document.getElementById("param-sigma-gnss").addEventListener("input", (e) => {
     state.params.sigmaGnss = Number(e.target.value);
-    invalidateResults();
+    scheduleAutoCalculate();
   });
 
   document.querySelector("#accuracy-table tbody").addEventListener("input", (e) => {
@@ -405,6 +448,7 @@ function attachTableListeners() {
     const idx = Number(t.dataset.idx);
     const field = t.dataset.field;
     state.accuracyClasses[idx][field] = field === "name" ? t.value : Number(t.value);
+    scheduleAutoCalculate();
   });
 
   document.querySelector("#accuracy-table tbody").addEventListener("click", (e) => {
@@ -412,6 +456,7 @@ function attachTableListeners() {
     if (t.dataset.action === "select-class") {
       state.activeClassIndex = Number(t.dataset.idx);
       renderAccuracyClassesTable();
+      scheduleAutoCalculate();
     } else if (t.dataset.action === "remove-class") {
       const idx = Number(t.dataset.idx);
       state.accuracyClasses.splice(idx, 1);
@@ -419,12 +464,14 @@ function attachTableListeners() {
         state.activeClassIndex = Math.max(0, state.accuracyClasses.length - 1);
       }
       renderAccuracyClassesTable();
+      scheduleAutoCalculate();
     }
   });
 
   document.getElementById("add-class").addEventListener("click", () => {
     state.accuracyClasses.push({ name: "Yeni sınıf", closureCoeff: 12, gnssMaxSigmaMm: 25, pointMaxStdevMm: 15 });
     renderAccuracyClassesTable();
+    scheduleAutoCalculate();
   });
 
   document.querySelector("#devreler-table tbody").addEventListener("input", (e) => {
@@ -432,21 +479,22 @@ function attachTableListeners() {
     if (!t.dataset.field) return;
     const idx = Number(t.dataset.idx);
     state.devreler[idx][t.dataset.field] = t.value;
+    scheduleAutoCalculate();
   });
 
   document.querySelector("#devreler-table tbody").addEventListener("click", (e) => {
     if (e.target.dataset.action === "remove-devre") {
       state.devreler.splice(Number(e.target.dataset.idx), 1);
       renderDevrelerTable();
+      scheduleAutoCalculate();
     }
   });
 
   document.getElementById("add-devre").addEventListener("click", () => {
     state.devreler.push({ name: `Devre-${state.devreler.length + 1}`, path: "" });
     renderDevrelerTable();
+    scheduleAutoCalculate();
   });
-
-  document.getElementById("calculate").addEventListener("click", calculate);
 }
 
 function calculate() {

@@ -14,6 +14,11 @@ const IO_SHEET_ALIASES = {
 function ioNormalizeHeader(h) {
   return String(h ?? "")
     .trim()
+    // Sondaki parantezli birim/etiket kısmını at, ör. "Y (Doğu)" -> "Y",
+    // "Δh (m)" -> "Δh", "GNSS σ Sınırı (mm)" -> "GNSS σ Sınırı". Bu sayede
+    // "Nokta"/"Y"/"Δh" gibi kısa takma adlar, dışa aktarılan başlıklarla
+    // (birimler dahil) yeniden BİREBİR eşleşir.
+    .replace(/\s*\([^)]*\)\s*$/, "")
     .toLowerCase()
     .replace(/σ/g, "sigma")
     .replace(/δ/g, "d")
@@ -27,11 +32,22 @@ function ioNormalizeHeader(h) {
 }
 
 function ioFindKey(rowObj, aliases) {
-  const normalizedMap = {};
-  Object.keys(rowObj).forEach((k) => (normalizedMap[ioNormalizeHeader(k)] = k));
+  const entries = Object.keys(rowObj).map((k) => [ioNormalizeHeader(k), k]);
+  // 1) Birebir eşleşme (yukarıdaki birim/etiket temizliğinden sonra).
   for (const alias of aliases) {
-    const norm = ioNormalizeHeader(alias);
-    if (norm in normalizedMap) return normalizedMap[norm];
+    const normAlias = ioNormalizeHeader(alias);
+    const hit = entries.find(([norm]) => norm === normAlias);
+    if (hit) return hit[1];
+  }
+  // 2) Alt dize eşleşmesi: "Mesafe S (km)" -> "mesafes" gibi, birim
+  // parantezden önce başka bir kelime/sembol daha barındıran başlıklar
+  // için yedek. Yanlış eşleşmeyi önlemek adına yalnızca 3+ karakterlik
+  // takma adlarda uygulanır (tek harfli "y"/"x"/"n" gibi takma adlar hariç).
+  for (const alias of aliases) {
+    const normAlias = ioNormalizeHeader(alias);
+    if (normAlias.length < 3) continue;
+    const hit = entries.find(([norm]) => norm.includes(normAlias));
+    if (hit) return hit[1];
   }
   return null;
 }

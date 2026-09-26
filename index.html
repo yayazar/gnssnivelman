@@ -39,9 +39,9 @@
     <h2>1. Noktalar</h2>
     <p class="panel-desc">Her noktanın Z (kot) değeri girilir: sabit (mesnet) noktalarda bu, bilinen kesin
       yüksekliktir ve dengelemede değişmeyen referans olarak kullanılır. Diğer noktalarda Z, saha/ön hesap kotudur —
-      aşağıdaki "Nivelman ölçüleri" tablosunda Δh, komşu noktaların Z farkından <strong>otomatik</strong> hesaplanır;
-      dengeleme, sabit noktaların Z'sini referans alıp mesafeyle orantılı ağırlıklandırarak diğer noktaların Z'sini
-      düzeltir. Y/X yalnızca krokinin çizimi içindir.</p>
+      iki bilinmeyen nokta arasındaki ölçülerde Δh bu Z'lerin farkından <strong>otomatik</strong> hesaplanır (bkz.
+      "2. Nivelman ölçüleri"). Dengeleme, sabit noktaların Z'sini değişmeyen referans alıp mesafeyle orantılı
+      ağırlıklandırarak diğer noktaların Z'sini düzeltir. Y/X yalnızca krokinin çizimi içindir.</p>
     <table id="points-table">
       <thead>
         <tr><th>Nokta adı</th><th>Tür</th><th>Y — Doğu (m)</th><th>X — Kuzey (m)</th><th>Z — Kot (m)</th><th></th></tr>
@@ -55,13 +55,16 @@
 
   <section class="panel">
     <h2>2. Nivelman (geometrik nivelman) ölçüleri</h2>
-    <p class="panel-desc"><strong>Δh varsayılan olarak Noktalar tablosundaki Z farkından canlı hesaplanır</strong>
-      (Δh = Z(varış) − Z(kalkış)) — alan boş bırakılırsa placeholder'da "oto: …" olarak görünür ve hesaba bu değer
-      girer. İki sabit (mesnet) nokta arasında ayrıca ölçülmüş <em>bağımsız bir kontrol hattı</em> varsa, o satıra
-      Δh'yi elle girerek otomatik hesaplamanın üzerine yazabilirsiniz (override) — bu, aşağıdaki "Devre/hat kapanma
-      kontrolü" için gereklidir, çünkü yalnızca Z'den türetilen kenarlar teleskopik olarak her zaman tam kapanır.
+    <p class="panel-desc"><strong>İki bilinmeyen (ara) nokta arasındaki</strong> ölçülerde Δh alanı boş
+      bırakılabilir: Noktalar tablosundaki Z farkından (Z(varış) − Z(kalkış)) canlı hesaplanır ve placeholder'da
+      "oto: …" olarak görünür. <strong>Bir sabit (mesnet) noktaya bağlanan ölçülerde Δh mutlaka elle
+      girilmelidir</strong> — bu kenarlarda Z'den otomatik türetme, sabit noktanın kendi değeriyle cebirsel olarak
+      sadeleşip totolojiye yol açar ve sabit noktanın dengelemeyi etkilemesini tamamen engeller; bu yüzden uygulama
+      bu durumda otomatik hesaplama YAPMAZ (placeholder "elle girin (sabit nokta)" gösterir). Bir sabit-sabit
+      kontrol hattı için de aynı şekilde Δh elle girilir; bu, aşağıdaki "Devre/hat kapanma kontrolü" için gereklidir.
       Mesafe (S) km cinsindendir; standart sapma otomatik olarak σ = k·√S formülüyle hesaplanır, isterseniz elle σ
-      girebilirsiniz. Hesapla'dan sonra "Düzeltme" ve "Dengeli Δh" sütunları doldurulur.</p>
+      girebilirsiniz. Girdiğiniz veriler dışında dengeleme tamamen otomatik çalışır — herhangi bir değeri
+      değiştirdiğinizde sonuçlar, "Düzeltme" ve "Dengeli Δh" sütunları dahil, kendiliğinden yeniden hesaplanır.</p>
     <table id="leveling-table">
       <thead>
         <tr>
@@ -147,7 +150,7 @@
   </section>
 
   <div class="calculate-bar">
-    <button id="calculate">Dengelemeyi Hesapla</button>
+    <span id="auto-calc-status" class="auto-calc-status">⟳ Dengeleme otomatik olarak hesaplanır</span>
   </div>
 
   <section class="panel hidden" id="results-section">

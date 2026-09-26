@@ -48,7 +48,11 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
     const toPt = pointByName[obs.to];
     if (!fromPt || !toPt) throw new Error(`Nivelman ölçüsü için nokta tanımsız: ${obs.from} -> ${obs.to}`);
     if (!Number.isFinite(obs.dh)) {
-      throw new Error(`Geçersiz Δh (yükseklik farkı) değeri: ${obs.from} → ${obs.to}`);
+      const touchesFixed = fromPt.type === "fixed" || toPt.type === "fixed";
+      const hint = touchesFixed
+        ? " (sabit nokta içeren ölçülerde Δh, Z farkından otomatik hesaplanmaz — elle girilmelidir)"
+        : "";
+      throw new Error(`Geçersiz Δh (yükseklik farkı) değeri: ${obs.from} → ${obs.to}${hint}`);
     }
 
     let sigma;
@@ -223,7 +227,9 @@ function evaluateRoute(routeName, pathNames, points, levelingObs) {
     }
     const obs = fwd || bwd;
     if (!Number.isFinite(obs.dh)) {
-      return { name: routeName, error: `Geçersiz Δh (yükseklik farkı) değeri: ${a} ↔ ${b}` };
+      const touchesFixed = pointByName[a].type === "fixed" || pointByName[b].type === "fixed";
+      const hint = touchesFixed ? " (sabit nokta içeren ölçülerde Δh elle girilmelidir)" : "";
+      return { name: routeName, error: `Geçersiz Δh (yükseklik farkı) değeri: ${a} ↔ ${b}${hint}` };
     }
     const dh = fwd ? obs.dh : -obs.dh;
     if (!Number.isFinite(obs.dist) || obs.dist <= 0) {
