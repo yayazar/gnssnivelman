@@ -92,7 +92,9 @@ başlayabilirsiniz.
   sahada yaygın kısa biçim) aranır; bulunamazsa `Elipsoidal`/`GNSS`
   (h için) ve `Ortometrik`/`Kot`/`Bilinen H` (H için) gibi daha açıklayıcı
   başlıklara harf duyarsız olarak geri dönülür. İçe aktarma, mevcut nokta
-  listesinin **tamamının yerine geçer**.
+  listesinin **tamamının yerine geçer**. `.csv` dosyaları UTF-8 olarak
+  okunur (Türkçe karakterli başlıkların doğru tanınması için); dosyanızı
+  Excel'den kaydederken "CSV UTF-8" biçimini seçmeniz önerilir.
 - **Excel Olarak Dışa Aktar**: O anki nokta listesini bir `.xlsx` dosyasına
   yazar — saklamak, paylaşmak ya da başka bir oturumda geri yüklemek için
   kullanılabilir.

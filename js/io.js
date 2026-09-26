@@ -100,18 +100,32 @@ function ioParsePointsRows(rows) {
     .filter((p) => p.name);
 }
 
+// .xlsx/.xls ikili (binary) konteynerlerdir ve ArrayBuffer olarak okunmalıdır.
+// .csv ise düz metindir; ArrayBuffer olarak SheetJS'e verilirse kodlama
+// (encoding) BOM yoksa varsayılan olarak Latin-1/CP1252 kabul edilir ve
+// "Tür", "Doğu" gibi Türkçe karakter içeren başlıklar bozulur (ör. "Tür" ->
+// "TÃ¼r") — bu da "Tür" sütununun tanınmamasına, dolayısıyla TÜM noktaların
+// sessizce "Bilinmeyen" sayılmasına yol açar. Bunu önlemek için .csv metin
+// olarak (UTF-8 varsayımıyla) okunur ve SheetJS'e { type: "string" } ile
+// verilir — böylece BOM olsun olmasın Türkçe karakterler doğru ayrıştırılır.
 function ioReadWorkbookFile(file) {
+  const isCsv = /\.csv$/i.test(file.name);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        resolve(XLSX.read(new Uint8Array(e.target.result), { type: "array" }));
+        resolve(
+          isCsv
+            ? XLSX.read(e.target.result, { type: "string" })
+            : XLSX.read(new Uint8Array(e.target.result), { type: "array" })
+        );
       } catch (err) {
         reject(err);
       }
     };
     reader.onerror = () => reject(reader.error || new Error("Dosya okunamadı."));
-    reader.readAsArrayBuffer(file);
+    if (isCsv) reader.readAsText(file, "UTF-8");
+    else reader.readAsArrayBuffer(file);
   });
 }
 
