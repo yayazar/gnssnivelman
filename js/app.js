@@ -38,10 +38,44 @@ function getSampleState() {
 
 let state = getSampleState();
 let lastResult = null; // { plane, perPoint }
+// Girdiler değiştirildiğinde (ya da henüz hiç hesaplanmadığında) true olur;
+// sonuçların o an tabloda görünen verilerle güncel olup olmadığını izler.
+// YALNIZCA calculate() başarıyla tamamlandığında false'a döner — otomatik
+// hesaplama YOKTUR, kullanıcı her zaman "Hesapla" butonuna basmalıdır.
+let isDirty = true;
 
 function fmt(v, d = 4) {
   if (v === null || v === undefined || Number.isNaN(v)) return "-";
   return Number(v).toFixed(d);
+}
+
+function markDirty() {
+  isDirty = true;
+  updateCalcStatus();
+}
+
+function updateCalcStatus() {
+  const el = document.getElementById("calc-status");
+  const btn = document.getElementById("calculate");
+  const resultsSection = document.getElementById("results-section");
+  const vizSection = document.getElementById("viz-section");
+
+  if (isDirty && !lastResult) {
+    el.textContent = "Hesaplamak için yukarıdaki noktaları girin ve Hesapla'ya basın.";
+    el.className = "calc-status pending";
+    btn.classList.add("needs-calc");
+  } else if (isDirty && lastResult) {
+    el.textContent = "⚠ Girdiler değişti — aşağıdaki sonuçlar artık güncel değil. Yeniden hesaplamak için Hesapla'ya basın.";
+    el.className = "calc-status stale";
+    btn.classList.add("needs-calc");
+  } else {
+    el.textContent = "✓ Sonuçlar güncel verilerinize göre hesaplandı.";
+    el.className = "calc-status fresh";
+    btn.classList.remove("needs-calc");
+  }
+
+  resultsSection.classList.toggle("stale-results", isDirty && !!lastResult);
+  vizSection.classList.toggle("stale-results", isDirty && !!lastResult);
 }
 
 function renderPointsTable() {
@@ -78,14 +112,17 @@ function attachTableListeners() {
     const field = t.dataset.field;
     if (["y", "x", "h", "H"].includes(field)) {
       state.points[idx][field] = t.value === "" ? null : Number(t.value);
+      markDirty();
     } else if (field === "name") {
       // Tabloyu her tuş vuruşunda yeniden çizmek input'un odağını kaybettirir;
       // isim değişince hemen renderPointsTable() çağrılmıyor (aşağıdaki
       // "focusout" dinleyicisi odak kaybolduğunda tabloyu tazeler).
       state.points[idx].name = t.value;
+      markDirty();
     } else {
       state.points[idx][field] = t.value;
       renderPointsTable();
+      markDirty();
     }
   });
 
@@ -97,6 +134,7 @@ function attachTableListeners() {
     if (e.target.dataset.action === "remove-point") {
       state.points.splice(Number(e.target.dataset.idx), 1);
       renderPointsTable();
+      markDirty();
     }
   });
 
@@ -104,6 +142,7 @@ function attachTableListeners() {
     const n = state.points.length + 1;
     state.points.push({ name: `P${n}`, type: "unknown", h: null, H: null, y: null, x: null });
     renderPointsTable();
+    markDirty();
   });
 
   document.getElementById("calculate").addEventListener("click", calculate);
@@ -117,6 +156,7 @@ function calculate() {
   try {
     const result = runGnssGeoidAdjustment(state.points);
     lastResult = result;
+    isDirty = false;
     renderResults(result);
   } catch (err) {
     lastResult = null;
@@ -125,6 +165,7 @@ function calculate() {
     document.getElementById("results-section").classList.add("hidden");
     document.getElementById("viz-section").classList.add("hidden");
   }
+  updateCalcStatus();
 }
 
 function renderResults(result) {
@@ -225,20 +266,32 @@ function showImportMessage(msg, isError = false) {
   box.classList.remove("hidden");
 }
 
-function clearAllData() {
-  state.points = [];
-  renderPointsTable();
+// Nokta listesinin TAMAMI değiştiğinde (temizleme, örnek veri, Excel içe
+// aktarma) önceki hesap sonucu artık anlamsızdır — sessizce "eski" (stale)
+// olarak göstermek yerine sonuçlar/kroki tamamen gizlenir ve kullanıcı
+// yeniden Hesapla'ya basana kadar temiz bir durumdan başlanır.
+function resetResultsForNewPointSet() {
+  lastResult = null;
+  document.getElementById("results-section").classList.remove("stale-results");
+  document.getElementById("viz-section").classList.remove("stale-results");
   document.getElementById("results-section").classList.add("hidden");
   document.getElementById("viz-section").classList.add("hidden");
   document.getElementById("error-box").classList.add("hidden");
-  showImportMessage("Tüm noktalar temizlendi.");
+  markDirty();
+}
+
+function clearAllData() {
+  state.points = [];
+  renderPointsTable();
+  resetResultsForNewPointSet();
+  showImportMessage("Tüm noktalar temizlendi. Yeni noktalar girip Hesapla'ya basın.");
 }
 
 function loadSampleData() {
   state = getSampleState();
   renderPointsTable();
-  calculate();
-  showImportMessage("Örnek Rize test verisi yüklendi.");
+  resetResultsForNewPointSet();
+  showImportMessage("Örnek Rize test verisi yüklendi. Sonuçları görmek için Hesapla'ya basın.");
 }
 
 // Dengeleme sonrası tüm noktaların (RS + hesaplanan yeni) nihai Y/X/H
@@ -302,8 +355,8 @@ function attachToolbarListeners() {
       const parsed = await ioImportWorkbook(file);
       state.points = parsed.points;
       renderPointsTable();
-      calculate();
-      showImportMessage(`İçe aktarıldı: ${state.points.length} nokta.`);
+      resetResultsForNewPointSet();
+      showImportMessage(`İçe aktarıldı: ${state.points.length} nokta. Sonuçları görmek için Hesapla'ya basın.`);
     } catch (err) {
       showImportMessage("İçe aktarma hatası: " + err.message, true);
     } finally {
@@ -334,5 +387,8 @@ document.addEventListener("DOMContentLoaded", () => {
   renderPointsTable();
   attachTableListeners();
   attachToolbarListeners();
-  calculate();
+  // Sayfa açıldığında OTOMATİK hesaplama yapılmaz — örnek veri tabloya
+  // yüklenmiş olarak görünür, ancak sonuçlar yalnızca kullanıcı "Hesapla"ya
+  // bastığında üretilir.
+  updateCalcStatus();
 });
