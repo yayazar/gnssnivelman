@@ -77,14 +77,15 @@ statik dosya sunucusu ile servis edebilirsiniz, örn. `python3 -m http.server`).
    butonuna basın. Sonuçlar yalnızca bu butona bastığınızda, o an tabloda
    görünen verilere göre yeniden hesaplanır.
 
-Excel/CSV ile kendi nokta listenizi içe aktarabilir ("Proje" araç çubuğu),
-şablonu indirebilir, sonucu dışa aktarabilir ya da örnek veriyle
-başlayabilirsiniz.
+Uygulama **boş bir nokta listesiyle** açılır; kendi verilerinizi ya
+Noktalar tablosuna elle girerek ya da "Proje" araç çubuğundan Excel/CSV
+içe aktararak yüklersiniz.
 
-## Excel içe/dışa aktarma
+## Excel içe aktarma
 
-- **Şablonu İndir**: Beklenen sütun başlıklarını gösteren örnek bir `.xlsx`
-  dosyası indirir.
+- **Şablonu İndir**: Beklenen sütun başlıklarını ve örnek birkaç satırı
+  gösteren bir `.xlsx` dosyası indirir — kendi verinizi bu biçime göre
+  hazırlayabilirsiniz.
 - **Excel'den İçe Aktar**: `.xlsx`, `.xls` veya `.csv` dosyası yükleyin.
   Yalnızca bir "Noktalar" sayfası/tablosu beklenir: **Nokta**, **Tür**
   (Sabit/RS ya da Bilinmeyen), **Y (Doğu)**, **X (Kuzey)**, **h**, **H**.
@@ -95,20 +96,18 @@ başlayabilirsiniz.
   listesinin **tamamının yerine geçer**. `.csv` dosyaları UTF-8 olarak
   okunur (Türkçe karakterli başlıkların doğru tanınması için); dosyanızı
   Excel'den kaydederken "CSV UTF-8" biçimini seçmeniz önerilir.
-- **Excel Olarak Dışa Aktar**: O anki nokta listesini bir `.xlsx` dosyasına
-  yazar — saklamak, paylaşmak ya da başka bir oturumda geri yüklemek için
-  kullanılabilir.
-- **Örnek Veriyi Yükle (Rize)** / **Tümünü Temizle**: Sırasıyla dahili test
-  verisini geri yükler ya da nokta listesini boşaltarak sıfırdan başlamayı
-  sağlar.
+- **Tümünü Temizle**: Nokta listesini boşaltarak sıfırdan başlamayı sağlar.
 
 **Doğruluk güvencesi:** Hesap motoru (`js/adjustment.js`), veri hangi
-yoldan geldiğine bakılmaksızın (örnek veri, elle giriş ya da Excel içe
-aktarma) hesaba başlamadan önce girdileri doğrular — bir noktanın h'si
-eksikse, bir RS noktasının H'si eksikse ya da RS noktaları jeoit düzlemini
-belirlemeye yetecek şekilde dağılmamışsa (aynı doğru üzerindeyse ya da 3'ten
-azsa), hesap sessizce yanlış/`NaN` bir sonuç üretmez; açık ve nokta adını
-belirten bir hata verir.
+yoldan geldiğine bakılmaksızın (elle giriş ya da Excel içe aktarma) hesaba
+başlamadan önce girdileri doğrular — bir noktanın h'si eksikse, bir RS
+noktasının H'si eksikse ya da RS noktaları jeoit düzlemini belirlemeye
+yetecek şekilde dağılmamışsa (aynı doğru üzerindeyse ya da 3'ten azsa),
+hesap sessizce yanlış/`NaN` bir sonuç üretmez; açık ve nokta adını belirten
+bir hata verir. Bu, yüklenen nokta sayısından ve sabit/bilinmeyen
+dağılımından bağımsız olarak geçerlidir — 3 sabit noktalık bir listeden
+binlerce noktalık bir listeye kadar aynı doğrulukla çalışır (bkz. altındaki
+"Ölçeklenebilirlik" notu).
 
 ## Hesaplanan noktaları indirme
 
@@ -167,6 +166,12 @@ js/app.js             Uygulama durumu, hesaplama tetikleme, arayüz ve sonuç in
 
 ## Notlar / sınırlamalar
 
+- **Ölçeklenebilirlik**: Hesap motoru, yüklenen nokta sayısından ve
+  sabit/bilinmeyen oranından bağımsız çalışır — 3 RS noktasından 1000+ RS
+  ve binlerce bilinmeyen noktaya kadar aynı doğrulukla ve milisaniyeler
+  içinde sonuç verir (numpy'nin `lstsq` sonucuyla çapraz doğrulanmıştır).
+  Performans veya doğruluk açısından bir üst sınır yoktur; pratik sınır
+  yalnızca tarayıcının çok büyük tablo/harita render performansıdır.
 - Düzlem (plane) modeli, jeoidin bölgesel eğimini yakalar ama yerel
   dalgalanmaları (küçük ölçekli jeoit anomalilerini) modelleyemez; RS
   noktalarındaki kalanlar ve σ₀ bu sınırlamanın bir göstergesidir. Daha

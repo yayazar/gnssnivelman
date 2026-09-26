@@ -18,16 +18,14 @@
 <main>
   <section class="panel toolbar-panel">
     <h2>Proje</h2>
-    <p class="panel-desc">Nokta listenizi Excel/CSV olarak içe aktarın, sonucu dışa aktarın ya da örnek veriyle
-      başlayın. Beklenen sütunlar için şablonu indirebilirsiniz.</p>
+    <p class="panel-desc">Nokta listenizi Excel/CSV olarak içe aktarın. Beklenen sütunlar için şablonu
+      indirebilirsiniz.</p>
     <div class="toolbar-actions">
       <label class="secondary file-button">
         Excel'den İçe Aktar
         <input type="file" id="import-excel-input" accept=".xlsx,.xls,.csv" hidden />
       </label>
       <button class="secondary" id="btn-download-template">Şablonu İndir</button>
-      <button class="secondary" id="btn-export-excel">Excel Olarak Dışa Aktar</button>
-      <button class="secondary" id="btn-load-sample">Örnek Veriyi Yükle (Rize)</button>
       <button class="danger" id="btn-clear-all">Tümünü Temizle</button>
     </div>
     <div id="import-message" class="message-box hidden"></div>

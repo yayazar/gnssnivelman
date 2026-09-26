@@ -10,33 +10,7 @@
 // js/adjustment.js. Noktalar tablosu dışında elle müdahale gerektiren başka
 // hiçbir menü yoktur.
 
-// RS noktalarının Rize bölgesinde çalışma alanını çevreleyecek şekilde
-// dağıtıldığı, gerçekçi bir örnek/test veri seti. Koordinatlar ve
-// yükseklikler GERÇEK/RESMİ DEĞİLDİR, yalnızca ölçek ve işlevsellik testi
-// amaçlıdır. h değerleri, RS noktalarındaki bilinen H'ye kasıtlı olarak
-// düzlemsel olmayan (küçük dalgalı) bir jeoit modeli eklenerek üretilmiştir;
-// bu yüzden düzlem oturtması sıfır olmayan küçük bir RMS ile sonuçlanır —
-// gerçekçi bir enterpolasyon örneği gösterir.
-function getSampleState() {
-  return {
-    points: [
-      { name: "RS1", type: "fixed", y: 548000, x: 4480000, h: 117.1198, H: 80.6 },
-      { name: "RS2", type: "fixed", y: 556000, x: 4480500, h: 134.3617, H: 97.9 },
-      { name: "RS3", type: "fixed", y: 555500, x: 4486000, h: 72.3838, H: 35.9 },
-      { name: "RS4", type: "fixed", y: 548500, x: 4485500, h: 55.9342, H: 19.4 },
-      { name: "N1", type: "unknown", y: 550200, x: 4481200, h: 107.9602 },
-      { name: "N2", type: "unknown", y: 553400, x: 4481600, h: 112.552 },
-      { name: "N3", type: "unknown", y: 554600, x: 4483400, h: 95.2717 },
-      { name: "N4", type: "unknown", y: 552800, x: 4484800, h: 75.4379 },
-      { name: "N5", type: "unknown", y: 550600, x: 4484200, h: 74.8469 },
-      { name: "N6", type: "unknown", y: 552000, x: 4482600, h: 96.4426 },
-      { name: "N7", type: "unknown", y: 549200, x: 4483000, h: 83.5153 },
-      { name: "N8", type: "unknown", y: 554000, x: 4485200, h: 75.1907 },
-    ],
-  };
-}
-
-let state = getSampleState();
+let state = { points: [] };
 let lastResult = null; // { plane, perPoint }
 // Girdiler değiştirildiğinde (ya da henüz hiç hesaplanmadığında) true olur;
 // sonuçların o an tabloda görünen verilerle güncel olup olmadığını izler.
@@ -302,10 +276,10 @@ function showImportMessage(msg, isError = false) {
   box.classList.remove("hidden");
 }
 
-// Nokta listesinin TAMAMI değiştiğinde (temizleme, örnek veri, Excel içe
-// aktarma) önceki hesap sonucu artık anlamsızdır — sessizce "eski" (stale)
-// olarak göstermek yerine sonuçlar/kroki tamamen gizlenir ve kullanıcı
-// yeniden Hesapla'ya basana kadar temiz bir durumdan başlanır.
+// Nokta listesinin TAMAMI değiştiğinde (temizleme, Excel içe aktarma)
+// önceki hesap sonucu artık anlamsızdır — sessizce "eski" (stale) olarak
+// göstermek yerine sonuçlar/kroki tamamen gizlenir ve kullanıcı yeniden
+// Hesapla'ya basana kadar temiz bir durumdan başlanır.
 function resetResultsForNewPointSet() {
   lastResult = null;
   lastPointsForViz = null;
@@ -322,13 +296,6 @@ function clearAllData() {
   renderPointsTable();
   resetResultsForNewPointSet();
   showImportMessage("Tüm noktalar temizlendi. Yeni noktalar girip Hesapla'ya basın.");
-}
-
-function loadSampleData() {
-  state = getSampleState();
-  renderPointsTable();
-  resetResultsForNewPointSet();
-  showImportMessage("Örnek Rize test verisi yüklendi. Sonuçları görmek için Hesapla'ya basın.");
 }
 
 // Dengeleme sonrası tüm noktaların (RS + hesaplanan yeni) nihai Y/X/H
@@ -401,15 +368,7 @@ function attachToolbarListeners() {
     }
   });
 
-  document.getElementById("btn-export-excel").addEventListener("click", () => {
-    XLSX.writeFile(ioBuildWorkbookFromState(state), "gnss-nivelman-noktalari.xlsx");
-  });
-
   document.getElementById("btn-download-template").addEventListener("click", ioDownloadTemplate);
-
-  document.getElementById("btn-load-sample").addEventListener("click", () => {
-    if (confirm("Mevcut noktalar örnek Rize test verisiyle değiştirilecek. Emin misiniz?")) loadSampleData();
-  });
 
   document.getElementById("btn-clear-all").addEventListener("click", () => {
     if (confirm("Tüm noktalar silinecek. Emin misiniz?")) clearAllData();
@@ -426,9 +385,8 @@ document.addEventListener("DOMContentLoaded", () => {
   renderPointsTable();
   attachTableListeners();
   attachToolbarListeners();
-  // Sayfa açıldığında OTOMATİK hesaplama yapılmaz — örnek veri tabloya
-  // yüklenmiş olarak görünür, ancak sonuçlar yalnızca kullanıcı "Hesapla"ya
-  // bastığında üretilir.
+  // Sayfa boş bir nokta listesiyle açılır; kullanıcı noktaları elle girene
+  // ya da Excel/CSV'den içe aktarana kadar hiçbir hesap yapılmaz.
   updateCalcStatus();
   updateEpsgName();
 });

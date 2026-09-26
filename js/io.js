@@ -151,25 +151,6 @@ async function ioImportWorkbook(file) {
   return { points };
 }
 
-function ioBuildWorkbookFromState(state) {
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.json_to_sheet(
-      state.points.map((p) => ({
-        Nokta: p.name,
-        Tür: p.type === "fixed" ? "Sabit" : "Bilinmeyen",
-        "Y (Doğu)": p.y ?? "",
-        "X (Kuzey)": p.x ?? "",
-        h: p.h ?? "",
-        H: p.type === "fixed" ? p.H ?? "" : "",
-      }))
-    ),
-    "Noktalar"
-  );
-  return wb;
-}
-
 function ioDownloadTemplate() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
