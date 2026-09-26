@@ -1,13 +1,9 @@
-// GNSS destekli jeodezik nivelman ağı dengelemesi
+// Jeodezik nivelman ağı dengelemesi
 // Yöntem: Dolaylı ölçüler (parametrik) yöntemi ile en küçük kareler dengelemesi
 //
 // Bilinmeyenler: sabit (mesnet) olmayan noktaların ortometrik yükseklikleri (H)
-// Ölçüler:
-//   1) Nivelman yükseklik farkı ölçüleri:  H_to - H_from = dh_ölçü   (ağırlık: 1/sigma_lev^2, sigma_lev = k * sqrt(S_km))
-//   2) GNSS ile belirlenen yükseklik (sözde ölçü):  H_nokta = h_elipsoidal - N_jeoit   (ağırlık: 1/sigma_gnss^2)
-//
-// Bu iki ölçü tipi ortak dengelemede birleştirilerek noktaların en olası
-// (dengeli) yükseklikleri ve bunların istatistiksel kesinlikleri hesaplanır.
+// Ölçü: nivelman yükseklik farkı  H_to - H_from = dh_ölçü
+// (ağırlık: 1/sigma^2, sigma = k * sqrt(S_km))
 
 function z95() {
   return 1.959963985; // %95 güven aralığı için standart normal kritik değer
@@ -24,7 +20,7 @@ function buildPointIndex(points) {
   return { unknownIndex, u: idx };
 }
 
-function runAdjustment(points, levelingObs, gnssObs, params) {
+function runAdjustment(points, levelingObs, params) {
   const { unknownIndex, u } = buildPointIndex(points);
   if (u === 0) throw new Error("En az bir bilinmeyen (sabit olmayan) nokta tanımlanmalı.");
 
@@ -42,7 +38,6 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
 
   const rows = []; // { A: [...], l: value, w: weight, label, kind }
 
-  // 1) Nivelman ölçüleri
   levelingObs.forEach((obs) => {
     const fromPt = pointByName[obs.from];
     const toPt = pointByName[obs.to];
@@ -95,33 +90,6 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
       label: `${obs.from} → ${obs.to}`,
       kind: "Nivelman",
       raw: obs.dh,
-    });
-  });
-
-  // 2) GNSS (elipsoidal yükseklik - jeoit ondülasyonu) sözde ölçüleri
-  gnssObs.forEach((obs) => {
-    const pt = pointByName[obs.point];
-    if (!pt) throw new Error(`GNSS ölçüsü için nokta tanımsız: ${obs.point}`);
-    if (pt.type === "fixed") return; // sabit noktada GNSS ölçüsü kontrol amaçlı, dengelemeye girmez
-    if (!Number.isFinite(obs.h) || !Number.isFinite(obs.N)) {
-      throw new Error(`Geçersiz GNSS ölçüsü (h veya N) değeri: ${obs.point}`);
-    }
-
-    const Hgnss = obs.h - obs.N;
-    const sigma = obs.sigma && obs.sigma > 0 ? obs.sigma : params.sigmaGnss;
-    const w = 1 / (sigma * sigma);
-
-    const row = new Array(u).fill(0);
-    row[unknownIndex[pt.name]] = 1;
-
-    rows.push({
-      A: row,
-      l: Hgnss,
-      w,
-      sigma,
-      label: `${obs.point} (GNSS)`,
-      kind: "GNSS",
-      raw: Hgnss,
     });
   });
 
@@ -188,4 +156,3 @@ function runAdjustment(points, levelingObs, gnssObs, params) {
     residualRows,
   };
 }
-

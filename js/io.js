@@ -2,9 +2,9 @@
 // SheetJS (js/vendor/xlsx.full.min.js) kütüphanesini kullanır; tamamen
 // istemci tarafında çalışır, hiçbir veri sunucuya gönderilmez.
 //
-// Uygulamanın TEK girdisi Noktalar listesidir (Nokta, Tür, Y, X, Z ve isteğe
-// bağlı GNSS h/N); nivelman ölçüleri, hatlar ve dengeleme tamamen bu
-// listeden otomatik türetilir (bkz. app.js).
+// Uygulamanın TEK girdisi Noktalar listesidir (Nokta, Tür, Y, X, Z); nivelman
+// ölçüleri, hatlar ve dengeleme tamamen bu listeden otomatik türetilir
+// (bkz. app.js).
 
 const IO_POINTS_SHEET_ALIASES = ["noktalar", "points"];
 
@@ -69,9 +69,7 @@ function ioParsePointsRows(rows) {
       const height = ioGetField(row, ["z", "kot", "yukseklik", "height"], { number: true });
       const y = ioGetField(row, ["y", "dogu", "easting"], { number: true });
       const x = ioGetField(row, ["x", "kuzey", "northing"], { number: true });
-      const h = ioGetField(row, ["h", "elipsoidalyukseklik", "ellipsoidalheight"], { number: true });
-      const N = ioGetField(row, ["n", "jeoidondulasyonu", "geoidundulation", "ondulasyon"], { number: true });
-      return { name, type, height, y, x, h, N };
+      return { name, type, height, y, x };
     })
     .filter((p) => p.name);
 }
@@ -124,8 +122,6 @@ function ioBuildWorkbookFromState(state) {
         "Y (Doğu)": p.y ?? "",
         "X (Kuzey)": p.x ?? "",
         "Z (Kot)": p.height ?? "",
-        "h (GNSS, opsiyonel)": p.h ?? "",
-        "N (GNSS, opsiyonel)": p.N ?? "",
       }))
     ),
     "Noktalar"
@@ -138,11 +134,11 @@ function ioDownloadTemplate() {
   XLSX.utils.book_append_sheet(
     wb,
     XLSX.utils.aoa_to_sheet([
-      ["Nokta", "Tür", "Y (Doğu)", "X (Kuzey)", "Z (Kot)", "h (GNSS, opsiyonel)", "N (GNSS, opsiyonel)"],
-      ["RP1", "Sabit", 548250, 4487600, 4.235, "", ""],
-      ["N1", "Bilinmeyen", 548500, 4486800, 9.63, "", ""],
-      ["N2", "Bilinmeyen", 548950, 4485950, 17.865, 50.45, 32.6],
-      ["RP2", "Sabit", 549600, 4482900, 63.87, "", ""],
+      ["Nokta", "Tür", "Y (Doğu)", "X (Kuzey)", "Z (Kot)"],
+      ["RP1", "Sabit", 548250, 4487600, 4.235],
+      ["N1", "Bilinmeyen", 548500, 4486800, 9.63],
+      ["N2", "Bilinmeyen", 548950, 4485950, 17.865],
+      ["RP2", "Sabit", 549600, 4482900, 63.87],
     ]),
     "Noktalar"
   );

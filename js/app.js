@@ -1,14 +1,13 @@
 // Uygulama durumu ve arayüz mantığı
 //
 // TASARIM: Tek kullanıcı girdisi "Noktalar" listesidir (nokta adı, tür,
-// Y, X, Z ve isteğe bağlı GNSS h/N). Nivelman ölçüleri, hatlar, dengeleme ve
-// kroki tamamen bu listeden — noktaların TÜRÜNE ve listedeki SIRASINA göre —
-// otomatik türetilir. Başka hiçbir tabloda elle müdahale gerekmez.
+// Y, X, Z). Nivelman ölçüleri, hatlar, dengeleme ve kroki tamamen bu
+// listeden — noktaların TÜRÜNE ve listedeki SIRASINA göre — otomatik
+// türetilir. Başka hiçbir tabloda elle müdahale gerekmez.
 
-// Sabit varsayılan hassasiyet katsayıları — basitlik için kodda sabittir,
+// Sabit varsayılan hassasiyet katsayısı — basitlik için kodda sabittir,
 // arayüzde düzenlenmez. Gerekirse burada değiştirin.
 const DEFAULT_K = 0.003; // m / √km — nivelman hassasiyet katsayısı (σ = k·√S)
-const DEFAULT_SIGMA_GNSS = 0.02; // m — GNSS yükseklik gözlemi için varsayılan σ
 
 // Örnek/test verisi: Rize (Karadeniz) bölgesinde, sahilden yaylaya çıkan
 // ~16 km'lik bir hat nivelmanını temsil eder. Koordinatlar (Y=Doğu, X=Kuzey)
@@ -19,21 +18,21 @@ const DEFAULT_SIGMA_GNSS = 0.02; // m — GNSS yükseklik gözlemi için varsay�
 function getSampleState() {
   return {
     points: [
-      { name: "RP1", type: "fixed", height: 4.235, y: 548250, x: 4487600, h: null, N: null },
-      { name: "N1", type: "unknown", height: 9.63, y: 548500, x: 4486800, h: null, N: null },
-      { name: "N2", type: "unknown", height: 17.865, y: 548950, x: 4485950, h: 50.45, N: 32.6 },
-      { name: "N3", type: "unknown", height: 29.43, y: 549400, x: 4485000, h: null, N: null },
-      { name: "N4", type: "unknown", height: 44.635, y: 549250, x: 4483950, h: 77.3, N: 32.65 },
-      { name: "RP2", type: "fixed", height: 63.87, y: 549600, x: 4482900, h: null, N: null },
-      { name: "N5", type: "unknown", height: 95.265, y: 549300, x: 4481700, h: null, N: null },
-      { name: "N6", type: "unknown", height: 132.7, y: 549750, x: 4480650, h: 165.435, N: 32.75 },
-      { name: "N7", type: "unknown", height: 175.075, y: 549500, x: 4479500, h: null, N: null },
-      { name: "N8", type: "unknown", height: 221.47, y: 549900, x: 4478400, h: 254.335, N: 32.85 },
-      { name: "RP3", type: "fixed", height: 270.955, y: 549650, x: 4477250, h: null, N: null },
-      { name: "N9", type: "unknown", height: 318.395, y: 550000, x: 4476150, h: 351.325, N: 32.95 },
-      { name: "N10", type: "unknown", height: 369.71, y: 549800, x: 4475000, h: null, N: null },
-      { name: "N11", type: "unknown", height: 415.18, y: 550150, x: 4473900, h: 448.245, N: 33.05 },
-      { name: "N12", type: "unknown", height: 462.53, y: 549950, x: 4472750, h: null, N: null },
+      { name: "RP1", type: "fixed", height: 4.235, y: 548250, x: 4487600 },
+      { name: "N1", type: "unknown", height: 9.63, y: 548500, x: 4486800 },
+      { name: "N2", type: "unknown", height: 17.865, y: 548950, x: 4485950 },
+      { name: "N3", type: "unknown", height: 29.43, y: 549400, x: 4485000 },
+      { name: "N4", type: "unknown", height: 44.635, y: 549250, x: 4483950 },
+      { name: "RP2", type: "fixed", height: 63.87, y: 549600, x: 4482900 },
+      { name: "N5", type: "unknown", height: 95.265, y: 549300, x: 4481700 },
+      { name: "N6", type: "unknown", height: 132.7, y: 549750, x: 4480650 },
+      { name: "N7", type: "unknown", height: 175.075, y: 549500, x: 4479500 },
+      { name: "N8", type: "unknown", height: 221.47, y: 549900, x: 4478400 },
+      { name: "RP3", type: "fixed", height: 270.955, y: 549650, x: 4477250 },
+      { name: "N9", type: "unknown", height: 318.395, y: 550000, x: 4476150 },
+      { name: "N10", type: "unknown", height: 369.71, y: 549800, x: 4475000 },
+      { name: "N11", type: "unknown", height: 415.18, y: 550150, x: 4473900 },
+      { name: "N12", type: "unknown", height: 462.53, y: 549950, x: 4472750 },
     ],
   };
 }
@@ -65,17 +64,6 @@ function buildLevelingFromPoints() {
     obs.push({ from: a.name, to: b.name, dh, dist: planarDistanceKm(a, b), sigma: null });
   }
   return obs;
-}
-
-// h VE N'si birlikte girilmiş her sabit olmayan nokta için bir GNSS sözde
-// ölçüsü üretir (H = h − N). Bu, ağdaki TEK gerçek bağımsız artıklık
-// kaynağıdır — ardışık noktalardan türetilen nivelman ölçüleri kendi
-// aralarında tutarlıdır ama sabit noktalara göre bağımsız bir kontrol
-// sağlamaz (bkz. README "Yöntem" bölümü).
-function buildGnssFromPoints() {
-  return state.points
-    .filter((p) => p.type !== "fixed" && Number.isFinite(p.h) && Number.isFinite(p.N))
-    .map((p) => ({ point: p.name, h: p.h, N: p.N, sigma: null }));
 }
 
 // Ardışık sabit noktalar arasındaki noktaları bir "hat" olarak gruplar —
@@ -127,8 +115,6 @@ function renderPointsTable() {
       <td><input type="number" step="any" value="${p.y ?? ""}" placeholder="—" data-idx="${i}" data-field="y" class="pt-input" /></td>
       <td><input type="number" step="any" value="${p.x ?? ""}" placeholder="—" data-idx="${i}" data-field="x" class="pt-input" /></td>
       <td><input type="number" step="any" value="${p.height ?? ""}" placeholder="—" data-idx="${i}" data-field="height" class="pt-input" /></td>
-      <td><input type="number" step="any" value="${p.h ?? ""}" placeholder="—" data-idx="${i}" data-field="h" class="pt-input" /></td>
-      <td><input type="number" step="any" value="${p.N ?? ""}" placeholder="—" data-idx="${i}" data-field="N" class="pt-input" /></td>
       <td><button class="danger" data-idx="${i}" data-action="remove-point">Sil</button></td>
     `;
     tbody.appendChild(tr);
@@ -156,7 +142,7 @@ function attachTableListeners() {
     if (!t.dataset.field) return;
     const idx = Number(t.dataset.idx);
     const field = t.dataset.field;
-    if (["y", "x", "height", "h", "N"].includes(field)) {
+    if (["y", "x", "height"].includes(field)) {
       state.points[idx][field] = t.value === "" ? null : Number(t.value);
       scheduleAutoCalculate();
     } else if (field === "name") {
@@ -188,7 +174,7 @@ function attachTableListeners() {
 
   document.getElementById("add-point").addEventListener("click", () => {
     const n = state.points.length + 1;
-    state.points.push({ name: `P${n}`, type: "unknown", height: null, y: null, x: null, h: null, N: null });
+    state.points.push({ name: `P${n}`, type: "unknown", height: null, y: null, x: null });
     renderPointsTable();
     scheduleAutoCalculate();
   });
@@ -201,12 +187,11 @@ function calculate() {
 
   try {
     const leveling = buildLevelingFromPoints();
-    const gnss = buildGnssFromPoints();
-    const result = runAdjustment(state.points, leveling, gnss, { k: DEFAULT_K, sigmaGnss: DEFAULT_SIGMA_GNSS });
+    const result = runAdjustment(state.points, leveling, { k: DEFAULT_K });
     lastResult = result;
     lastLeveling = leveling;
     lastHatlar = buildHatlarFromPoints();
-    renderResults(result, gnss.length);
+    renderResults(result);
   } catch (err) {
     lastResult = null;
     errorBox.textContent = "Hata: " + err.message;
@@ -216,7 +201,7 @@ function calculate() {
   }
 }
 
-function renderResults(result, gnssCount) {
+function renderResults(result) {
   document.getElementById("results-section").classList.remove("hidden");
   document.getElementById("viz-section").classList.remove("hidden");
 
@@ -228,20 +213,15 @@ function renderResults(result, gnssCount) {
   // Ardışık noktalardan otomatik türetilen nivelman ölçüleri, sabit
   // noktalara bağlandıkları kenarlarda cebirsel olarak kendi kendini
   // doğrular (Δh, ilgili noktanın kendi Z'sinden geldiği için) — bu yüzden
-  // GNSS yokken formel "redundancy" sıfırdan büyük görünse bile gerçek bir
-  // bağımsız kontrol sağlamaz. Bu notu redundancy'ye değil, GNSS ölçüsü
-  // olup olmadığına göre tetikliyoruz.
+  // "redundancy" sıfırdan büyük görünse bile gerçek bağımsız bir kontrol
+  // sağlamaz. Bu, tek bir sıralı nokta listesinin kaçınılmaz bir özelliğidir.
   const noteEl = document.getElementById("redundancy-note");
-  if (gnssCount === 0) {
-    noteEl.textContent =
-      "Not: Hiçbir noktada GNSS (h, N) verisi girilmemiş. Ardışık noktalardan türetilen nivelman ölçüleri sabit " +
-      "noktalara bağlandığında kendi kendini doğrular; bu yüzden dengeleme, girdiğiniz Z değerlerini neredeyse " +
-      "olduğu gibi yansıtır (gerçek bir bağımsız düzeltme yapılmaz). Bağımsız bir kontrol/düzeltme için en az " +
-      "birkaç noktaya GNSS h/N ekleyin.";
-    noteEl.classList.remove("hidden");
-  } else {
-    noteEl.classList.add("hidden");
-  }
+  noteEl.textContent =
+    "Not: Dengeleme, ardışık noktalardan türetilen ölçülere dayanır; bu ölçüler sabit noktalara bağlandığında " +
+    "cebirsel olarak kendi kendini doğrular. Bu yüzden dengeli yükseklikler, girdiğiniz Z değerlerini neredeyse " +
+    "olduğu gibi yansıtır — bağımsız bir ikinci ölçüm kaynağı (ör. ayrı bir kontrol nivelmanı) olmadan gerçek bir " +
+    "hata tespiti/düzeltme yapılamaz. Standart sapmalar yine de mesafeye göre hesaplanır ve göreli hassasiyeti gösterir.";
+  noteEl.classList.remove("hidden");
 
   const heightsBody = document.querySelector("#heights-table tbody");
   heightsBody.innerHTML = "";
@@ -254,24 +234,6 @@ function renderResults(result, gnssCount) {
       <td>[${fmt(r.ciLow, 4)}, ${fmt(r.ciHigh, 4)}]</td>
     `;
     heightsBody.appendChild(tr);
-  });
-
-  const gnssResiduals = result.residualRows.filter((r) => r.kind === "GNSS");
-  document.getElementById("gnss-residuals-section").classList.toggle("hidden", gnssResiduals.length === 0);
-  const resBody = document.querySelector("#residuals-table tbody");
-  resBody.innerHTML = "";
-  gnssResiduals.forEach((r) => {
-    const flag = Math.abs(r.vNormalized) > 3 ? "flag-bad" : Math.abs(r.vNormalized) > 2 ? "flag-warn" : "";
-    const tr = document.createElement("tr");
-    tr.className = flag;
-    tr.innerHTML = `
-      <td>${vizEscape(r.label)}</td>
-      <td>${fmt(r.raw, 4)}</td>
-      <td>±${fmt(r.sigma, 4)}</td>
-      <td>${fmt(r.v, 4)}</td>
-      <td>${fmt(r.vNormalized, 2)}</td>
-    `;
-    resBody.appendChild(tr);
   });
 
   renderLevelingReport(result);
