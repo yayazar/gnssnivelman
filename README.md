@@ -2,10 +2,13 @@
 
 Klasik **GNSS destekli nivelman** iş akışını uygulayan, tek girdi olarak bir
 **nokta listesi** alan, tarayıcıda çalışan istemci taraflı bir web
-uygulaması. Sunucu gerektirmez ve internet bağlantısı olmadan da çalışır;
-Excel içe/dışa aktarma için kullanılan tek üçüncü parti kütüphane (SheetJS)
-dahi yerel olarak paketlenmiştir. Tüm hesap JavaScript ile tarayıcıda
-yapılır, veri hiçbir zaman bir sunucuya gönderilmez.
+uygulaması. Excel içe/dışa aktarma (SheetJS), koordinat dönüşümü (proj4js) ve
+harita (Leaflet) için kullanılan üçüncü parti kütüphaneler yerel olarak
+paketlenmiştir; **hesabın kendisi** internet bağlantısı olmadan da tamamen
+çalışır. Yalnızca haritadaki OpenStreetMap altlık karoları internet
+gerektirir (bkz. "Harita" bölümü) — bağlantı yoksa harita boş/gri kalır,
+ancak hesap sonuçları bundan etkilenmez. Tüm hesap JavaScript ile
+tarayıcıda yapılır, veri hiçbir zaman bir sunucuya gönderilmez.
 
 ## Yöntem: GNSS + jeoit ondülasyonu enterpolasyonu
 
@@ -116,28 +119,47 @@ dosya indirir:
 - **NCN**: NetCAD "Nokta Cetveli" biçimi — başlıksız,
   `NoktaNo,Y,X,Z,Kod` düzeninde virgülle ayrılmış satırlar.
 
-## Görselleştirme (otomatik)
+## Harita
 
-- **Ölçekli ağ krokisi**: Noktaların gerçek konumuna göre ölçekli plan
-  görünüşü. RS (sabit) noktalar kare, yeni noktalar daire olarak gösterilir;
-  RS noktalarının çevrelediği dışbükey alan (jeoit modeli bölgesi) kesikli
-  çizgiyle işaretlenir — bu, RS dağılımının çalışma alanını ne kadar iyi
-  kapsadığını görsel olarak değerlendirmeye yarar. Ölçek çubuğu, kuzey oku
-  ve lejant içerir; noktalar üzerine gelindiğinde ayrıntı gösterir.
-- **Yükseklik profili**: RS noktaları kare (bilinen H), yeni noktalar daire
-  (hesaplanan H) olarak gösterilir. Yeni noktalarda, hata yayılma kanunuyla
-  o noktanın konumuna göre hesaplanan gerçek %95 güven aralığı çizilir (bkz.
-  "İstatistiksel değerlendirme").
+Noktalar, bir **OpenStreetMap altlık haritası** üzerinde gerçek
+konumlarında gösterilir (Leaflet ile). RS (sabit) noktalar kare, yeni
+noktalar daire olarak çizilir; ekstrapolasyon yapılan noktalar (bkz.
+"Ekstrapolasyon uyarısı") kesikli kırmızı halkayla işaretlenir; RS
+noktalarının çevrelediği dışbükey alan (jeoit modeli bölgesi) kesikli
+çizgiyle gösterilir — bu, RS dağılımının çalışma alanını ne kadar iyi
+kapsadığını görsel olarak değerlendirmeye yarar. Bir noktaya tıklayınca
+ayrıntıları (h, H, uyarılar) gösteren bir bilgi kutusu açılır.
+
+### Koordinat sistemi (EPSG kodu)
+
+Noktalar tablosundaki Y/X, uygulamanın hesap yaptığı düz/projeksiyonlu metre
+koordinatlarıdır ve EPSG seçiminden **etkilenmez**. EPSG kodu YALNIZCA bu
+Y/X'in haritada doğru yerde görünmesi için WGS84 enlem/boylama çevrilirken
+kullanılır (proj4js ile). Harita panelindeki metin kutusuna bir EPSG kodu
+girin (ör. `32637` = WGS84 UTM 37N, Rize–Trabzon bölgesi için tipik) —
+yaygın seçenekler açılır listede önerilir. Desteklenen aralıklar:
+
+- `4326` — WGS84 coğrafi (Y/X doğrudan boylam/enlem olarak yorumlanır)
+- `32601`–`32660` / `32701`–`32760` — WGS84 UTM (kuzey/güney yarımküre)
+- `23028`–`23038` — ED50 UTM (yaklaşık 3 parametreli dönüşümle)
+- `5253`–`5258` — TUREF/Türkiye Ulusal TM dilimleri (harita ölçeğinde WGS84
+  ile özdeş kabul edilir)
+
+Bu tam bir EPSG kayıt veritabanı değildir; desteklenmeyen bir kod girilirse
+harita alanında açık bir hata mesajı gösterilir (hesap sonuçları etkilenmez).
+EPSG değişikliği **Hesapla gerektirmez** — anında yeniden çizilir.
 
 ## Dosya yapısı
 
 ```
 index.html          Arayüz (HTML) — tek düzenlenebilir tablo: Noktalar
 css/style.css        Görsel stil
+css/vendor/           Leaflet CSS + harita ikonları (BSD-2-Clause)
 js/adjustment.js      Jeoit düzlemi (N = a + b·Y + c·X) en küçük kareler oturtması ve H hesabı
-js/viz.js             Ölçekli ağ krokisi ve yükseklik profili SVG görselleştirmeleri
+js/epsg.js            EPSG kodu → proj4 tanımı (harita gösterimi için koordinat dönüşümü)
+js/viz.js             OpenStreetMap altlıklı harita görselleştirmesi (Leaflet üzerine)
 js/io.js              Excel içe/dışa aktarma ve şablon oluşturma (SheetJS üzerine)
-js/vendor/            SheetJS (xlsx) kütüphanesi — yerel, üçüncü parti (Apache-2.0)
+js/vendor/            SheetJS (Apache-2.0), proj4js (MIT), Leaflet (BSD-2-Clause) — yerel, üçüncü parti
 js/app.js             Uygulama durumu, hesaplama tetikleme, arayüz ve sonuç indirme
 ```
 

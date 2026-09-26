@@ -324,14 +324,46 @@ code {
   margin-bottom: 1.5rem;
 }
 
-.viz-svg {
-  display: block;
-  width: 100%;
-  height: auto;
+.map-container {
+  height: 480px;
+  padding: 0;
+  overflow: hidden;
 }
 
-.viz-hit {
-  cursor: pointer;
+.gnss-marker-label {
+  background: rgba(255, 255, 255, 0.92);
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  font-weight: 600;
+  font-size: 0.78rem;
+  padding: 1px 5px;
+}
+
+.gnss-marker-label::before {
+  display: none;
+}
+
+.epsg-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.epsg-picker label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+#epsg-input {
+  width: 120px;
+  flex: 0 0 auto;
+}
+
+.epsg-note {
+  margin: 0;
+  flex-basis: 100%;
 }
 
 .viz-legend {
@@ -366,20 +398,6 @@ code {
   border-radius: 0;
   background: none !important;
   border-top: 2.5px dashed var(--muted);
-}
-
-.viz-tooltip {
-  position: fixed;
-  z-index: 1000;
-  background: #111827;
-  color: #f8fafc;
-  padding: 0.5rem 0.7rem;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  max-width: 260px;
-  pointer-events: none;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 footer {

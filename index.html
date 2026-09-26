@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>GNSS Nivelmanı — Jeoit Enterpolasyonu</title>
+<link rel="stylesheet" href="css/vendor/leaflet.css" />
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -112,19 +113,33 @@
   </section>
 
   <section class="panel hidden" id="viz-section">
-    <h2>Görselleştirme</h2>
+    <h2>Harita</h2>
+    <p class="panel-desc">Noktaların OpenStreetMap altlık haritası üzerindeki gerçek konumu. RS (sabit) noktalar
+      kare, yeni noktalar daire olarak gösterilir; RS noktalarının çevrelediği alan (jeoit modeli bölgesi) kesikli
+      çizgiyle işaretlenir. Ayrıntılar için bir noktaya tıklayın. <strong>Not:</strong> altlık harita karoları
+      internet bağlantısı gerektirir; bağlantı yoksa yalnızca noktalar/işaretler görünmez, hesap sonuçları yine de
+      geçerlidir.</p>
 
-    <h3>Ölçekli ağ krokisi</h3>
-    <p class="panel-desc">Noktaların gerçek konumuna göre ölçekli plan görünüşü. RS (sabit) noktalar kare, yeni
-      noktalar daire olarak gösterilir; RS noktalarının çevrelediği alan (jeoit modeli bölgesi) kesikli çizgiyle
-      işaretlenir. Ayrıntılar için noktalar üzerine gelin.</p>
-    <div id="network-sketch" class="viz-container"></div>
+    <div class="epsg-picker">
+      <label for="epsg-input">Nokta koordinat sistemi (EPSG kodu):</label>
+      <input type="text" id="epsg-input" list="epsg-list" value="32637" />
+      <datalist id="epsg-list">
+        <option value="32637">WGS84 / UTM 37N (Rize–Trabzon)</option>
+        <option value="32636">WGS84 / UTM 36N</option>
+        <option value="32635">WGS84 / UTM 35N</option>
+        <option value="32638">WGS84 / UTM 38N</option>
+        <option value="23037">ED50 / UTM 37N</option>
+        <option value="23036">ED50 / UTM 36N</option>
+        <option value="5257">TUREF / TM39</option>
+        <option value="5254">TUREF / TM30</option>
+        <option value="4326">WGS84 coğrafi (doğrudan enlem/boylam)</option>
+      </datalist>
+      <span class="panel-desc epsg-note">Yalnızca haritada doğru konumda gösterim içindir; hesaplanan H
+        değerlerini etkilemez.</span>
+    </div>
 
-    <h3>Yükseklik profili</h3>
-    <p class="panel-desc">RS noktaları kare (bilinen H), yeni noktalar daire (hesaplanan H) olarak; yeni noktalarda
-      hata yayılma kanunuyla o noktanın konumuna göre hesaplanan gerçek %95 güven aralığı gösterilir — RS
-      noktalarına yakın noktalarda dar, uzak/dış noktalarda geniş çıkar.</p>
-    <div id="height-profile" class="viz-container"></div>
+    <div id="network-sketch" class="viz-container map-container"></div>
+    <div id="network-sketch-legend" class="viz-legend"></div>
   </section>
 </main>
 
@@ -135,6 +150,9 @@
 
 <script src="js/adjustment.js"></script>
 <script src="js/vendor/xlsx.full.min.js"></script>
+<script src="js/vendor/proj4.js"></script>
+<script src="js/vendor/leaflet/leaflet.js"></script>
+<script src="js/epsg.js"></script>
 <script src="js/io.js"></script>
 <script src="js/viz.js"></script>
 <script src="js/app.js"></script>

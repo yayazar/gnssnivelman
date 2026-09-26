@@ -241,13 +241,27 @@ function renderResults(result) {
     isExtrapolationByName[p.name] = p.isExtrapolation;
     hByName[p.name] = p.H;
   });
-  const pointsForViz = state.points.map((p) => ({
+  lastPointsForViz = state.points.map((p) => ({
     ...p,
     H: hByName[p.name] ?? p.H,
     isExtrapolation: isExtrapolationByName[p.name] ?? false,
   }));
-  renderNetworkSketch(document.getElementById("network-sketch"), pointsForViz, result.plane);
-  renderHeightProfile(document.getElementById("height-profile"), result.perPoint);
+  redrawMap();
+}
+
+// EPSG kodu değişikliği, hesaplanan H değerlerini ETKİLEMEZ — yalnızca
+// haritadaki konum gösterimini günceller; bu yüzden "Hesapla" gerekmeden,
+// en son hesaplanan noktalarla anında yeniden çizilebilir.
+let lastPointsForViz = null;
+function redrawMap() {
+  if (!lastPointsForViz) return;
+  const epsgCode = document.getElementById("epsg-input").value;
+  renderNetworkSketch(
+    document.getElementById("network-sketch"),
+    document.getElementById("network-sketch-legend"),
+    lastPointsForViz,
+    epsgCode
+  );
 }
 
 function renderPlaneReport(result) {
@@ -279,6 +293,7 @@ function showImportMessage(msg, isError = false) {
 // yeniden Hesapla'ya basana kadar temiz bir durumdan başlanır.
 function resetResultsForNewPointSet() {
   lastResult = null;
+  lastPointsForViz = null;
   document.getElementById("results-section").classList.remove("stale-results");
   document.getElementById("viz-section").classList.remove("stale-results");
   document.getElementById("results-section").classList.add("hidden");
@@ -388,6 +403,8 @@ function attachToolbarListeners() {
   document.querySelectorAll("[data-download-format]").forEach((btn) => {
     btn.addEventListener("click", () => downloadResults(btn.dataset.downloadFormat));
   });
+
+  document.getElementById("epsg-input").addEventListener("change", redrawMap);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
