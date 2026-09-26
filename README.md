@@ -26,16 +26,36 @@ yapılır, veri hiçbir zaman bir sunucuya gönderilmez.
 5. **Hesaplama**: Her yeni noktanın konumundaki N, bu düzlemden enterpole
    edilir ve ortometrik yükseklik `H = h − N(Y, X)` ile hesaplanır.
 
-RS noktalarındaki kalanlar (`N_ölçülen − N_düzlem`) ve bunların RMS'i,
-düzlem modelinin bölgeyi ne kadar iyi temsil ettiğinin bir göstergesi olarak
-raporlanır. Tam olarak 3 RS noktası varsa düzlem bu üç noktadan tam geçer
-(RMS ≈ 0, fazla ölçü yok); 4 veya daha fazla RS noktası, modelin bağımsız
-olarak sınanmasını sağlar.
-
 **Neden düzlem (plane) ve neden en az 3 RS noktası?** Bir düzlem denklemi
 3 katsayı (a, b, c) içerir; bunları belirlemek için en az 3 bağımsız
 (Y, X, N) üçlüsü gerekir. RS noktaları aynı doğru üzerinde veya çakışıksa
 sistem belirsiz kalır ve uygulama açık bir hata ile bunu bildirir.
+
+### İstatistiksel değerlendirme (dolaylı ölçüler yöntemi)
+
+Düzlem, RS noktalarındaki N ölçülerine **dolaylı ölçüler (parametrik)
+yöntemiyle** en küçük kareler ile oturtulur:
+
+- Kalanlar: `v = N_ölçülen − N_düzlem`
+- Birim ağırlıklı ölçü hatası (a posteriori varyans faktörü):
+  `σ₀² = (vᵀv) / (n − 3)` (n: RS nokta sayısı; `n − 3` fazla ölçü sayısıdır)
+- Düzlem parametrelerinin (a, b, c) kovaryans matrisi: `Cxx = σ₀² · N⁻¹`
+  (N: normal denklemler matrisi `AᵀA`)
+- **Hata yayılma kanunu**: herhangi bir (Y, X) konumundaki N tahmininin
+  varyansı `Var[N(Y,X)] = fᵀ·Cxx·f`, `f = [1, Y, X]ᵀ`
+- Her yeni noktanın H'sindeki standart sapma: `σ_H = √Var[N(Y,X)]`
+  (GNSS h ölçümünün kendi hatası ayrıca modellenmemiştir; bu yalnızca jeoit
+  düzlemi modelinin kesinliğini yansıtır)
+- %95 güven aralığı: `H ± 1.96·σ_H`
+
+Bu, **kaba bir yaklaşım değil, gerçek bir kovaryans analizidir**: RS
+noktalarının merkezine yakın yeni noktalarda σ_H küçük çıkar; merkeze uzak
+ya da RS noktalarının çevrelediği alanın DIŞINDAKİ (ekstrapolasyon yapılan)
+noktalarda σ_H belirgin şekilde büyür — bu, ekstrapolasyonun neden daha az
+güvenilir olduğunu sayısal olarak da gösterir. Tam olarak 3 RS noktası
+varsa fazla ölçü olmadığından (`n − 3 = 0`) σ₀ ve dolayısıyla σ_H
+istatistiksel olarak hesaplanamaz; bu durumda arayüzde "—" gösterilir ve en
+az 4 RS noktası kullanılması önerilir.
 
 ## Kullanım
 
@@ -105,10 +125,9 @@ dosya indirir:
   kapsadığını görsel olarak değerlendirmeye yarar. Ölçek çubuğu, kuzey oku
   ve lejant içerir; noktalar üzerine gelindiğinde ayrıntı gösterir.
 - **Yükseklik profili**: RS noktaları kare (bilinen H), yeni noktalar daire
-  (hesaplanan H) olarak gösterilir. Yeni noktalarda, jeoit düzlemi RMS
-  uyumsuzluğuna dayanan kaba bir belirsizlik bandı çizilir — bu, gerçek bir
-  kovaryans/güven aralığı değil, yalnızca düzlem modelinin RS noktalarına ne
-  kadar iyi uyduğunun bir göstergesidir.
+  (hesaplanan H) olarak gösterilir. Yeni noktalarda, hata yayılma kanunuyla
+  o noktanın konumuna göre hesaplanan gerçek %95 güven aralığı çizilir (bkz.
+  "İstatistiksel değerlendirme").
 
 ## Dosya yapısı
 
@@ -126,11 +145,14 @@ js/app.js             Uygulama durumu, hesaplama tetikleme, arayüz ve sonuç in
 
 - Düzlem (plane) modeli, jeoidin bölgesel eğimini yakalar ama yerel
   dalgalanmaları (küçük ölçekli jeoit anomalilerini) modelleyemez; RS
-  noktalarındaki kalanların RMS'i bu sınırlamanın bir göstergesidir. Daha
+  noktalarındaki kalanlar ve σ₀ bu sınırlamanın bir göstergesidir. Daha
   hassas bir uygulama için ulusal jeoit modeli (ör. TG-03/TG-09) ile
   birlikte kullanılması önerilir.
-- Yeni noktalar için gösterilen belirsizlik bandı (±RMS), gerçek bir
-  kovaryans analizi değildir; yalnızca kaba bir gösterge amaçlıdır.
+- Yeni noktalar için gösterilen standart sapma/%95 güven aralığı, düzlem
+  parametrelerinin kovaryans matrisinden hata yayılma kanunuyla hesaplanan
+  gerçek bir istatistiktir; ancak yalnızca jeoit düzlemi modelinin
+  kesinliğini yansıtır — GNSS h ölçümünün kendi hata payı ayrıca
+  modellenmemiştir (ayrı bir h ölçüm hassasiyeti girilmediği için).
 - Bu araç eğitim ve ön değerlendirme amaçlıdır; resmi jeodezik üretimlerde
   ilgili ulusal standartlar ve yönetmeliklerin güncel ve resmi metni esas
   alınmalıdır.

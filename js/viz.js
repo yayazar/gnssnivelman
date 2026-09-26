@@ -224,17 +224,24 @@ function convexHull(pts) {
 }
 
 // ---------------------------------------------------------------------------
-// Yükseklik profili — jeoit yüzeyinin RMS uyumsuzluğu (plane.rms), yeni
-// noktalar için kabaca bir enterpolasyon belirsizliği göstergesi olarak
-// ±rms bandı şeklinde kullanılır (gerçek bir kovaryans/güven aralığı değil,
-// yalnızca düzlem modelinin RS noktalarına ne kadar iyi uyduğunun bir
-// göstergesidir).
-function renderHeightProfile(container, perPoint, rms) {
+// Yükseklik profili — yeni noktalardaki %95 güven aralığı, düzlem
+// parametrelerinin kovaryans matrisinden hata yayılma kanunuyla HER
+// NOKTANIN KENDİ KONUMU için hesaplanmıştır (bkz. js/adjustment.js,
+// fitGeoidPlane/predictStdev) — sabit bir bant değil, gerçek bir
+// istatistiksel güven aralığıdır.
+function renderHeightProfile(container, perPoint) {
   const items = perPoint.map((p) => {
     if (p.type === "fixed") {
       return { name: p.name, type: "fixed", H: p.H, ciLow: p.H, ciHigh: p.H, isExtrapolation: false };
     }
-    return { name: p.name, type: "unknown", H: p.H, ciLow: p.H - rms, ciHigh: p.H + rms, isExtrapolation: !!p.isExtrapolation };
+    return {
+      name: p.name,
+      type: "unknown",
+      H: p.H,
+      ciLow: p.ciLow ?? p.H,
+      ciHigh: p.ciHigh ?? p.H,
+      isExtrapolation: !!p.isExtrapolation,
+    };
   });
 
   if (items.length === 0) {
@@ -303,7 +310,7 @@ function renderHeightProfile(container, perPoint, rms) {
     const tip =
       it.type === "fixed"
         ? `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m (bilinen, RS)`
-        : `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m (hesaplanan)<br/>Model RMS ile yaklaşık aralık: [${it.ciLow.toFixed(4)}, ${it.ciHigh.toFixed(4)}]${it.isExtrapolation ? "<br/>⚠ RS alanı dışında: ekstrapolasyon" : ""}`;
+        : `<strong>${vizEscape(it.name)}</strong><br/>H = ${it.H.toFixed(4)} m (hesaplanan)<br/>%95 güven aralığı: [${it.ciLow.toFixed(4)}, ${it.ciHigh.toFixed(4)}]${it.isExtrapolation ? "<br/>⚠ RS alanı dışında: ekstrapolasyon (aralık buna göre geniş)" : ""}`;
     hits.push(`<rect x="${x - 16}" y="${padT}" width="32" height="${plotH}" fill="transparent" class="viz-hit" data-tip="${vizEscape(tip)}" />`);
   });
 
@@ -323,7 +330,7 @@ function renderHeightProfile(container, perPoint, rms) {
     ${svg}
     <div class="viz-legend">
       <span class="viz-legend-item"><span class="viz-swatch viz-swatch-square" style="background:${VIZ_COLORS.fixed}"></span>RS (sabit, bilinen H)</span>
-      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.unknown}"></span>Yeni nokta (hesaplanan H) — model RMS bandıyla</span>
+      <span class="viz-legend-item"><span class="viz-swatch" style="background:${VIZ_COLORS.unknown}"></span>Yeni nokta (hesaplanan H) — %95 güven aralığıyla</span>
     </div>
   `;
 

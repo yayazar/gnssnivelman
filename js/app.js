@@ -177,30 +177,34 @@ function renderResults(result) {
 
   document.getElementById("stat-nobs").textContent = fixedCount;
   document.getElementById("stat-unknowns").textContent = unknownCount;
-  document.getElementById("stat-redundancy").textContent = fixedCount - 3;
-  document.getElementById("stat-sigma0").textContent = fmt(result.plane.rms * 1000, 1) + " mm";
+  document.getElementById("stat-redundancy").textContent = result.plane.redundancy;
+  document.getElementById("stat-sigma0").textContent =
+    result.plane.sigma0 != null ? fmt(result.plane.sigma0 * 1000, 1) + " mm" : "—";
 
   const extrapolationCount = result.perPoint.filter((p) => p.isExtrapolation).length;
 
   const noteEl = document.getElementById("redundancy-note");
   let note;
-  if (fixedCount === 3) {
+  if (result.plane.sigma0 == null) {
     note =
-      "Not: Tam olarak 3 RS noktası girildiği için jeoit düzlemi bu üç noktadan tam geçer (RMS ≈ 0) — fazla ölçü " +
-      "yoktur, dolayısıyla düzlem modelinin doğruluğu bağımsız olarak sınanamaz. Daha güvenilir bir sonuç için " +
-      "alanı çevreleyen en az 4 RS noktası kullanmanız önerilir.";
+      "Not: Tam olarak 3 RS noktası girildiği için jeoit düzlemi bu üç noktadan tam geçer (fazla ölçü yok) — " +
+      "birim ağırlıklı ölçü hatası (σ₀) ve dolayısıyla her noktanın standart sapması istatistiksel olarak " +
+      "hesaplanamaz (aşağıda '—' ile gösterilir). Standart sapma/güven aralığı elde etmek için alanı çevreleyen " +
+      "en az 4 RS noktası kullanmanız gerekir.";
   } else {
     note =
-      `Not: Jeoit düzlemi ${fixedCount} RS noktasına en küçük kareler ile oturtulmuştur; RS noktalarındaki ` +
-      `kalanların RMS'i ${fmt(result.plane.rms * 1000, 1)} mm'dir — bu, düzlem modelinin bölgeyi ne kadar iyi ` +
-      "temsil ettiğinin bir göstergesidir. Yeni noktalar için gösterilen aralık, bu RMS'e dayanan kaba bir " +
-      "enterpolasyon belirsizliği göstergesidir; gerçek bir kovaryans analizi değildir.";
+      `Not: Jeoit düzlemi ${fixedCount} RS noktasına dolaylı ölçüler yöntemiyle en küçük kareler ile oturtulmuştur ` +
+      `(birim ağırlıklı ölçü hatası σ₀ = ${fmt(result.plane.sigma0 * 1000, 1)} mm, fazla ölçü = ${result.plane.redundancy}). ` +
+      "Her yeni noktanın H'sindeki standart sapma ve %95 güven aralığı, düzlem parametrelerinin kovaryans " +
+      "matrisinden hata yayılma kanunuyla o noktanın KONUMUNA göre hesaplanmıştır — RS noktalarının merkezine " +
+      "yakın noktalarda küçük, uzak/dış noktalarda büyük çıkar. (GNSS h ölçümünün kendi hata payı ayrıca " +
+      "modellenmemiştir; yalnızca jeoit düzlemi modelinin kesinliğini yansıtır.)";
   }
   if (extrapolationCount > 0) {
     note +=
       ` ⚠ ${extrapolationCount} yeni nokta, RS noktalarının çevrelediği alanın DIŞINDA kalıyor — bu noktalarda ` +
-      "jeoit düzlemi enterpolasyon değil ekstrapolasyon yapıyor ve sonuç önemli ölçüde daha az güvenilir olabilir " +
-      "(aşağıdaki tabloda ve krokide ayrıca işaretlenmiştir).";
+      "jeoit düzlemi enterpolasyon değil ekstrapolasyon yapıyor (standart sapmalarının belirgin şekilde büyük " +
+      "çıktığına dikkat edin; aşağıdaki tabloda ve krokide ayrıca işaretlenmiştir).";
   }
   noteEl.textContent = note;
   noteEl.classList.remove("hidden");
@@ -215,12 +219,15 @@ function renderResults(result) {
       : p.isExtrapolation
       ? "⚠ Ekstrapolasyon (RS alanı dışında)"
       : "Hesaplanan (GNSS + jeoit enterpolasyonu)";
+    const stdevText = p.type === "fixed" ? "—" : p.stdevH != null ? "±" + fmt(p.stdevH * 1000, 1) + " mm" : "—";
+    const ciText = p.type === "fixed" ? "—" : p.ciLow != null ? `[${fmt(p.ciLow, 4)}, ${fmt(p.ciHigh, 4)}]` : "—";
     tr.innerHTML = `
       <td>${vizEscape(p.name)}</td>
       <td>${fmt(p.h, 4)}</td>
       <td>${fmt(p.N, 4)}</td>
       <td>${fmt(p.H, 4)}</td>
-      <td>${p.residualMm != null ? fmt(p.residualMm, 1) + " mm" : "—"}</td>
+      <td>${stdevText}</td>
+      <td>${ciText}</td>
       <td>${durum}</td>
     `;
     heightsBody.appendChild(tr);
@@ -240,7 +247,7 @@ function renderResults(result) {
     isExtrapolation: isExtrapolationByName[p.name] ?? false,
   }));
   renderNetworkSketch(document.getElementById("network-sketch"), pointsForViz, result.plane);
-  renderHeightProfile(document.getElementById("height-profile"), result.perPoint, result.plane.rms);
+  renderHeightProfile(document.getElementById("height-profile"), result.perPoint);
 }
 
 function renderPlaneReport(result) {

@@ -78,7 +78,7 @@
       </div>
       <div class="stat-card">
         <div class="value" id="stat-sigma0">-</div>
-        <div class="label">Jeoit düzlemi RMS uyumsuzluğu</div>
+        <div class="label">Birim ağırlıklı ölçü hatası (σ₀)</div>
       </div>
     </div>
 
@@ -87,7 +87,7 @@
     <h3>Hesaplanan yükseklikler</h3>
     <table id="heights-table">
       <thead>
-        <tr><th>Nokta</th><th>h — GNSS (m)</th><th>N — jeoit ond. (m)</th><th>H — ortometrik (m)</th><th>RS kalanı</th><th>Durum</th></tr>
+        <tr><th>Nokta</th><th>h — GNSS (m)</th><th>N — jeoit ond. (m)</th><th>H — ortometrik (m)</th><th>Std. sapma (σ_H)</th><th>%95 güven aralığı</th><th>Durum</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -122,7 +122,8 @@
 
     <h3>Yükseklik profili</h3>
     <p class="panel-desc">RS noktaları kare (bilinen H), yeni noktalar daire (hesaplanan H) olarak; yeni noktalarda
-      jeoit düzlemi RMS'ine dayanan kaba bir belirsizlik bandı gösterilir.</p>
+      hata yayılma kanunuyla o noktanın konumuna göre hesaplanan gerçek %95 güven aralığı gösterilir — RS
+      noktalarına yakın noktalarda dar, uzak/dış noktalarda geniş çıkar.</p>
     <div id="height-profile" class="viz-container"></div>
   </section>
 </main>
